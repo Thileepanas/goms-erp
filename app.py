@@ -8,7 +8,7 @@ import os
 import hashlib
 import hmac
 import secrets
-from datetime import datetime
+from datetime import datetime, timedelta  # Auto-logout-க்கு timedelta சேர்க்கப்பட்டுள்ளது
 import pandas as pd
 
 # ----------------------------------
@@ -23,6 +23,9 @@ app.secret_key = os.environ.get(
     "FLASK_SECRET_KEY",
     "goms-local-development-key-change-before-deployment"
 )
+
+# 30 நிமிஷம் ஆக்டிவிட்டி இல்லைனா Auto Logout ஆகும்
+app.permanent_session_lifetime = timedelta(minutes=30)
 
 # ----------------------------------
 # DATE FORMATTER (DD/MM/YYYY)
@@ -231,7 +234,6 @@ def init_db():
 # ----------------------------------
 @app.before_request
 def restrict_site_supervisor():
-    # லாகின் பண்ணாத வரைக்கும் யாரையும் தடுக்கக் கூடாது
     if not session.get("username"):
         return
         
@@ -268,6 +270,7 @@ def login():
 
         if user:
             if verify_password(password, user["salt"], user["password_hash"]):
+                session.permanent = True  # <--- Auto Logout-க்கு இது முக்கியம்
                 session["username"] = user["username"]
                 session["role"] = user["role"] if "role" in user.keys() else "Admin"
                 return redirect(url_for("dashboard"))
@@ -428,24 +431,30 @@ def search():
     conn = get_db()
     search_term = f"%{query}%"
 
-    # 1. Projects
     projects = conn.execute("SELECT * FROM projects WHERE project_name LIKE ? OR client_name LIKE ?", (search_term, search_term)).fetchall()
-    # 2. Purchases
-    purchases = conn.execute("SELECT * FROM purchases WHERE invoice_number LIKE ? OR supplier_name LIKE ?", (search_term, search_term)).fetchall()
-    # 3. Purchase Orders (PO)
+    
+    purchases = conn.execute("""
+        SELECT DISTINCT p.* FROM purchases p 
+        LEFT JOIN purchase_items pi ON p.id = pi.purchase_id 
+        WHERE p.invoice_number LIKE ? OR p.supplier_name LIKE ? OR pi.material_name LIKE ? OR pi.description LIKE ?
+    """, (search_term, search_term, search_term, search_term)).fetchall()
+    
     pos = conn.execute("SELECT * FROM po WHERE vendor_name LIKE ? OR quotation_no LIKE ? OR project_name LIKE ?", (search_term, search_term, search_term)).fetchall()
-    # 4. Parties
     parties = conn.execute("SELECT * FROM parties WHERE party_name LIKE ? OR gstin LIKE ?", (search_term, search_term)).fetchall()
-    # 5. Sales Bills (NEW)
-    bills = conn.execute("SELECT * FROM bills WHERE bill_no LIKE ? OR project_name LIKE ?", (search_term, search_term)).fetchall()
-    # 6. Payments / Expenses (NEW)
+    
+    bills = conn.execute("""
+        SELECT DISTINCT b.* FROM bills b 
+        LEFT JOIN bill_items bi ON b.id = bi.bill_id 
+        WHERE b.bill_no LIKE ? OR b.project_name LIKE ? OR bi.description LIKE ?
+    """, (search_term, search_term, search_term)).fetchall()
+    
     accounts = conn.execute("SELECT * FROM accounts WHERE description LIKE ? OR paid_name LIKE ?", (search_term, search_term)).fetchall()
-    # 7. Labour (NEW)
     labours = conn.execute("SELECT * FROM labour WHERE labour_name LIKE ? OR designation LIKE ?", (search_term, search_term)).fetchall()
     
     conn.close()
     
     return render_template("search_results.html", query=query, projects=projects, purchases=purchases, pos=pos, parties=parties, bills=bills, accounts=accounts, labours=labours)
+
 # ----------------------------------
 # PROJECTS & PURCHASES
 # ----------------------------------
@@ -595,7 +604,6 @@ def purchases():
                 conn.close()
                 return redirect(url_for("purchases"))
 
-        # GET Data
         purchase_list = conn.execute("SELECT * FROM purchases ORDER BY id DESC").fetchall()
         
         materials_raw = conn.execute("SELECT material_name, unit FROM stock ORDER BY material_name").fetchall()
@@ -1006,7 +1014,6 @@ def accounts_entry():
             except ValueError:
                 flash("Please enter a valid amount.", "error")
 
-    # GET Request
     edit_bill_data = None
     edit_bill_items = []
     edit_account_data = None
@@ -1339,7 +1346,6 @@ def poq():
             for i in range(len(descriptions)):
                 item_name = descriptions[i].strip()
                 if item_name:
-                    # DUPLICATE CHECK
                     existing = cursor.execute("SELECT id FROM poq WHERE project_name = ? AND material_name = ?", (selected_project, item_name)).fetchone()
                     if existing and str(existing['id']) != str(edit_id):
                         flash(f"Error: '{item_name}' already exists in this Project BOQ!", "error")
@@ -1349,21 +1355,20 @@ def poq():
                     qty = float(quantities[i]) if quantities[i] else 0
                     s_rate = float(supply_rates[i]) if supply_rates[i] else 0
                     e_rate = float(erection_rates[i]) if erection_rates[i] else 0
-                    s_name = subcon_names[i].strip() if subcon_names[i] else ""
-                    s_rate_con = float(subcon_rates[i]) if subcon_rates[i] else 0
+                    s_name = subcon_names[i].strip() if i < len(subcon_names) and subcon_names[i] else ""
+                    s_rate_con = float(subcon_rates[i]) if i < len(subcon_rates) and subcon_rates[i] else 0
+                    
                     unit_val = units[i]
                     total_rate = s_rate + e_rate
                     amt = round(qty * total_rate, 2)
                     
                     if edit_id:
-                        # UPDATE EXISTING
                         cursor.execute("""
                             UPDATE poq SET material_name=?, unit=?, quantity=?, rate=?, amount=?, supply_rate=?, erection_rate=?, subcon_name=?, subcon_rate=? 
                             WHERE id=?
                         """, (item_name, unit_val, qty, total_rate, amt, s_rate, e_rate, s_name, s_rate_con, edit_id))
                         flash("BOQ Item updated successfully!", "success")
                     else:
-                        # INSERT NEW
                         cursor.execute("""
                             INSERT INTO poq (project_name, material_name, unit, quantity, rate, amount, supply_rate, erection_rate, subcon_name, subcon_rate) 
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -1963,7 +1968,10 @@ def logout():
 # ----------------------------------
 # START APPLICATION
 # ----------------------------------
+
+# Gunicorn ரன் ஆகும்போதும் DB டேபிள்ஸ் கிரியேட் ஆக இதை வெளியே வைக்கணும்
 init_db()
+
 if __name__ == "__main__":
     print("--------------------------------")
     print("GOMS ELECTRICAL PVT LTD ERP")

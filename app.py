@@ -23,8 +23,6 @@ app.secret_key = os.environ.get(
     "FLASK_SECRET_KEY",
     "goms-local-development-key-change-before-deployment"
 )
-
-# 30 நிமிஷம் ஆக்டிவிட்டி இல்லைனா Auto Logout ஆகும்
 app.permanent_session_lifetime = timedelta(minutes=30)
 
 # ----------------------------------
@@ -717,7 +715,73 @@ def stock():
         last_rate = conn.execute("SELECT rate FROM stock_ledger WHERE material_name = ? AND transaction_type = 'Receipt' ORDER BY id DESC LIMIT 1", (m['material_name'],)).fetchone()
         current_rate = last_rate[0] if last_rate else 0
         total_value = available * current_rate
-        summary_list.append({"material_code": m['material_code'], "material_name": m['material_name'], "unit": m['unit'], "opening_stock": m['opening_stock'], "total_receipts": receipts, "total_issues": issues, "available_stock": available, "current_rate": current_rate, "total_value": total_value, "reorder_level": m['reorder_level']})
+        
+        # 'id' புதுசா சேர்க்கப்பட்டிருக்கு (Delete பண்ண தேவை)
+        summary_list.append({
+            "id": m['id'], 
+            "material_code": m['material_code'], 
+            "material_name": m['material_name'], 
+            "unit": m['unit'], 
+            "opening_stock": m['opening_stock'], 
+            "total_receipts": receipts, 
+            "total_issues": issues, 
+            "available_stock": available, 
+            "current_rate": current_rate, 
+            "total_value": total_value, 
+            "reorder_level": m['reorder_level']
+        })
+
+    raw_ledger = conn.execute("SELECT * FROM stock_ledger ORDER BY transaction_date ASC, id ASC").fetchall()
+    ledger_list = []
+    running_balances = {}
+    for row in raw_ledger:
+        m_name = row['material_name']
+        if m_name not in running_balances:
+            m_data = conn.execute("SELECT opening_stock FROM stock WHERE material_name = ?", (m_name,)).fetchone()
+            running_balances[m_name] = m_data['opening_stock'] if m_data else 0
+        if row['transaction_type'] == 'Receipt':
+            running_balances[m_name] += row['quantity']
+        else:
+            running_balances[m_name] -= row['quantity']
+        ledger_list.append({"date": row['transaction_date'], "material": m_name, "type": row['transaction_type'], "invoice": row['invoice_no'], "project": row['project_name'], "in_qty": row['quantity'] if row['transaction_type'] == 'Receipt' else 0, "out_qty": row['quantity'] if row['transaction_type'] == 'Issue' else 0, "rate": row['rate'], "balance": running_balances[m_name]})
+
+    low_stock_list = [item for item in summary_list if item['available_stock'] <= item['reorder_level']]
+    project_material_report = conn.execute("SELECT project_name, material_name, SUM(quantity) as total_issued FROM stock_ledger WHERE transaction_type = 'Issue' AND project_name != '' AND project_name IS NOT NULL GROUP BY project_name, material_name ORDER BY project_name").fetchall()
+    project_list = conn.execute("SELECT project_name FROM projects").fetchall()
+    conn.close()
+
+    return render_template("stock.html", summary_list=summary_list, ledger_list=ledger_list, low_stock_list=low_stock_list, project_material_report=project_material_report, project_list=project_list)
+
+
+@app.route("/stock/delete/<int:id>")
+def delete_stock(id):
+    if not session.get("username"):
+        return redirect(url_for("login"))
+    
+    conn = get_db()
+    material = conn.execute("SELECT material_name FROM stock WHERE id = ?", (id,)).fetchone()
+    
+    if material:
+        m_name = material['material_name']
+        conn.execute("DELETE FROM stock WHERE id = ?", (id,))
+        conn.execute("DELETE FROM stock_ledger WHERE material_name = ?", (m_name,))
+        conn.commit()
+        flash(f"Material '{m_name}' Deleted!", "success")
+    else:
+        flash("Material not found!", "error")
+        
+    conn.close()
+    return redirect(url_for("stock"))
+    materials = conn.execute("SELECT * FROM stock").fetchall()
+    summary_list = []
+    for m in materials:
+        receipts = conn.execute("SELECT SUM(quantity) FROM stock_ledger WHERE material_name = ? AND transaction_type = 'Receipt'", (m['material_name'],)).fetchone()[0] or 0
+        issues = conn.execute("SELECT SUM(quantity) FROM stock_ledger WHERE material_name = ? AND transaction_type = 'Issue'", (m['material_name'],)).fetchone()[0] or 0
+        available = m['opening_stock'] + receipts - issues
+        last_rate = conn.execute("SELECT rate FROM stock_ledger WHERE material_name = ? AND transaction_type = 'Receipt' ORDER BY id DESC LIMIT 1", (m['material_name'],)).fetchone()
+        current_rate = last_rate[0] if last_rate else 0
+        total_value = available * current_rate
+        summary_list.append({"id": m['id'],"material_code": m['material_code'], "material_name": m['material_name'], "unit": m['unit'], "opening_stock": m['opening_stock'], "total_receipts": receipts, "total_issues": issues, "available_stock": available, "current_rate": current_rate, "total_value": total_value, "reorder_level": m['reorder_level']})
 
     raw_ledger = conn.execute("SELECT * FROM stock_ledger ORDER BY transaction_date ASC, id ASC").fetchall()
     ledger_list = []

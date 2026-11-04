@@ -94,7 +94,7 @@
             </div>
         </div>
 
-        <!-- Summary Table -->
+                <!-- Summary Table -->
         <div class="card">
             <h3>Current Inventory Summary</h3>
             <div class="table-wrap">
@@ -109,6 +109,7 @@
                             <th>Available Balance</th>
                             <th>Last Rate (₹)</th>
                             <th>Total Value (₹)</th>
+                            <th class="no-print" style="text-align: center;">Action</th> <!-- புது காலம் -->
                         </tr>
                     </thead>
                     <tbody>
@@ -126,9 +127,14 @@
                             </td>
                             <td>{{ "%.2f"|format(item.current_rate) }}</td>
                             <td><strong>{{ "%.2f"|format(item.total_value) }}</strong></td>
+                            
+                            <!-- புது Delete பட்டன் -->
+                            <td class="no-print" style="text-align: center;">
+                                <a href="{{ url_for('delete_stock', id=item.id) }}" class="btn" style="padding: 4px 8px; font-size: 12px; background: #e31e24;" onclick="return confirm('Are you sure you want to delete this material and its entire history?');">❌ Delete</a>
+                            </td>
                         </tr>
                         {% else %}
-                        <tr><td colspan="8" style="text-align: center;">No materials added yet.</td></tr>
+                        <tr><td colspan="9" style="text-align: center;">No materials added yet.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>

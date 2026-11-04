@@ -8,7 +8,7 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body { display: flex; min-height: 100vh; background: #0a2240; }
         
-        /* Left Side - Branding */
+        /* Left Side - Branding (Desktop) */
         .left-panel { flex: 1; background: url('https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?q=80&w=2070&auto=format&fit=crop') no-repeat center center/cover; position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 40px; }
         .left-panel::before { content: ''; position: absolute; top:0; left:0; right:0; bottom:0; background: linear-gradient(to right, rgba(10,34,64,0.85), rgba(10,34,64,0.4)); }
         .brand-content { position: relative; z-index: 1; text-align: center; color: white; }
@@ -16,7 +16,7 @@
         .brand-content h3 { font-size: 24px; font-weight: 400; letter-spacing: 2px; }
         .brand-content p { margin-top: 20px; font-size: 14px; letter-spacing: 3px; border-top: 1px solid rgba(255,255,255,0.3); padding-top: 20px; }
         
-        /* Right Side - Login Form */
+        /* Right Side - Login Form (Desktop) */
         .right-panel { width: 50%; display: flex; justify-content: center; align-items: center; background: #f4f7f9; position: relative; }
         /* Red diagonal accent */
         .right-panel::before { content: ''; position: absolute; top: 0; left: -50px; width: 100px; height: 100%; background: #e31e24; transform: skewX(-10deg); }
@@ -45,11 +45,57 @@
         .footer-text::before { content: ''; position: absolute; top: 50%; left: 0; width: 30%; height: 1px; background: #ddd; }
         .footer-text::after { content: ''; position: absolute; top: 50%; right: 0; width: 30%; height: 1px; background: #ddd; }
 
+        /* Hide the blue mobile banner on Desktop */
+        .mobile-welcome-banner { display: none; }
+
+        /* =========================================
+           MOBILE VIEW (Phone, Tablet) - Only changes here
+           ========================================= */
         @media (max-width: 900px) {
-            body { flex-direction: column; }
+            body { 
+                flex-direction: column; 
+                /* Mobile-க்கு நீல நிற கிரேடியன்ட் பேக்ரவுண்ட் */
+                background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 50%, #7dd3fc 100%);
+                align-items: center; 
+                justify-content: center; 
+                padding: 20px;
+            }
+            /* Hide the left image panel */
             .left-panel { display: none; }
-            .right-panel { width: 100%; height: 100vh; }
+            
+            .right-panel { 
+                width: 100%; 
+                height: auto; 
+                background: transparent; 
+            }
+            /* Hide the red diagonal line */
             .right-panel::before { display: none; }
+            
+            .login-card { 
+                padding: 30px 20px; 
+                border-radius: 20px; 
+                box-shadow: 0 15px 35px rgba(0,0,0,0.15); 
+            }
+
+            /* Hide the default form title */
+            .form-title { display: none; }
+
+            /* Show and style the Mobile Welcome Banner */
+            .mobile-welcome-banner {
+                display: block;
+                background: linear-gradient(to right, #021b3a, #0a4b8f);
+                color: white;
+                padding: 15px;
+                border-radius: 12px;
+                margin-bottom: 25px;
+                box-shadow: 0 5px 15px rgba(10, 75, 143, 0.3);
+                text-align: center;
+            }
+            .mobile-welcome-banner h2 { font-size: 24px; margin-bottom: 5px; color: white; }
+            .mobile-welcome-banner h2 span { color: #ffc107; }
+            .mobile-welcome-banner p { font-size: 13px; font-style: italic; color: #d1e0f0; }
+            
+            .input-group input { background: white; }
         }
     </style>
 </head>
@@ -69,7 +115,14 @@
                 <h2>GO<span>MS</span></h2>
                 <p>Electricals Pvt. Ltd.</p>
             </div>
+
+            <!-- இது மொபைல்ல மட்டும் தான் தெரியும் -->
+            <div class="mobile-welcome-banner">
+                <h2>Welcome <span>Back</span></h2>
+                <p>Login to access your ERP dashboard</p>
+            </div>
             
+            <!-- இது கம்ப்யூட்டர்ல மட்டும் தான் தெரியும் -->
             <div class="form-title">
                 <h3>Welcome Back</h3>
                 <p>Login to access your ERP dashboard</p>

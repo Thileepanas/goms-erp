@@ -24,7 +24,7 @@
         .sidebar-menu > li > a { display: block; padding: 15px 25px; color: rgba(255,255,255,0.8); text-decoration: none; transition: 0.3s; font-size: 15px; border-left: 4px solid transparent; }
         .sidebar-menu > li > a:hover, .sidebar-menu > li > a.active { background-color: rgba(255,255,255,0.1); color: var(--white); border-left: 4px solid var(--accent-red); }
 
-        /* Dropdown Menu Style (Hover Effect) */
+        /* Dropdown Menu Style (Hover Effect for Desktop) */
         .dropdown { position: relative; }
         .dropdown-menu { display: none; list-style: none; background-color: #081a30; padding: 0; position: absolute; z-index: 1000; width: 100%; }
         .dropdown:hover .dropdown-menu { display: block; }
@@ -77,16 +77,21 @@
         .alert.success { background: #e0f5e8; color: #176b38; border-left: 5px solid #176b38; }
         .alert.error { background: #fff0f0; color: #b42318; border-left: 5px solid #b42318; }
 
+        /* ================== MOBILE VIEW ================== */
         @media(max-width: 768px) {
             body { flex-direction: column; }
             .sidebar { width: 100%; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; }
             .sidebar-header { border: none; padding: 10px; width: 100%; }
-            .sidebar-menu { display: flex; padding: 0; overflow-x: auto; width: 100%; }
-            .sidebar-menu > li > a { padding: 15px; border-left: none; border-bottom: 3px solid transparent; white-space: nowrap; }
+            .sidebar-menu { display: flex; padding: 0; overflow-x: auto; width: 100%; white-space: nowrap; }
+            .sidebar-menu > li > a { padding: 15px; border-left: none; border-bottom: 3px solid transparent; }
             .sidebar-menu > li > a.active { border-left: none; border-bottom: 3px solid var(--accent-red); }
+            
             .topbar { flex-direction: column; align-items: flex-start; gap: 10px; }
             .user-area { width: 100%; justify-content: space-between; flex-wrap: wrap; }
             .grid-2, .grid-3 { grid-template-columns: 1fr; }
+            
+            /* மொபைல்ல டிராப்-டவுன் மெனு அழகா விழ */
+            .dropdown-menu { position: absolute; top: 100%; left: 0; min-width: 200px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
         }
     </style>
 </head>
@@ -107,7 +112,7 @@
             
             <!-- Projects Dropdown -->
             <li class="dropdown">
-                <a href="#" class="{% if request.endpoint in ['projects', 'edit_project', 'poq', 'po', 'purchases', 'stock', 'work_progress', 'material_issue'] %}active{% endif %}" style="cursor: pointer;">
+                <a href="#" class="{% if request.endpoint in ['projects', 'edit_project', 'poq', 'po', 'purchases', 'stock', 'work_progress', 'material_issue'] %}active{% endif %}">
                     Projects ▾
                 </a>
                 <ul class="dropdown-menu">
@@ -123,7 +128,7 @@
             
             <!-- Labour Dropdown -->
             <li class="dropdown">
-                <a href="#" class="{% if request.endpoint in ['labour', 'attendance', 'attendance_report'] %}active{% endif %}" style="cursor: pointer;">
+                <a href="#" class="{% if request.endpoint in ['labour', 'attendance', 'attendance_report'] %}active{% endif %}">
                     Labour ▾
                 </a>
                 <ul class="dropdown-menu">
@@ -135,7 +140,7 @@
             <!-- Site Supervisor-க்கு Accounts தேவை இல்லை -->
             {% if session.get('role') != 'Site Supervisor' %}
             <li class="dropdown">
-                <a href="#" class="{% if request.endpoint in ['accounts', 'accounts_entry', 'client_ledger', 'vendor_ledger', 'gst_reconciliation', 'md_approval'] %}active{% endif %}" style="cursor: pointer;">
+                <a href="#" class="{% if request.endpoint in ['accounts', 'accounts_entry', 'client_ledger', 'vendor_ledger', 'gst_reconciliation', 'md_approval', 'vendor_report'] %}active{% endif %}">
                     Accounts ▾
                 </a>
                 <ul class="dropdown-menu">
@@ -145,7 +150,7 @@
                     <li><a href="{{ url_for('accounts') }}">4. Project P&L</a></li>
                     <li><a href="{{ url_for('gst_reconciliation') }}">5. GSTR-2B Match</a></li>
                     <li><a href="{{ url_for('md_approval') }}">6. MD Approvals</a></li>
-                    <li><a href="{{ url_for('vendor_report') }}" class="{% if request.endpoint == 'vendor_report' %}active{% endif %}">Vendor Overall Report</a></li>
+                    <li><a href="{{ url_for('vendor_report') }}">Vendor Overall Report</a></li>
                 </ul>
             </li>
             {% endif %}
@@ -166,8 +171,8 @@
             
             <!-- Global Search Bar -->
             <form action="{{ url_for('search') }}" method="GET" style="display: flex; gap: 8px; flex: 1; max-width: 350px; margin: 0 20px; align-items: center;">
-                <input type="text" name="q" placeholder="Search..." style="padding: 8px 15px; border-radius: 20px; border: 1px solid #ccc; font-size: 13px; width: 100%; outline: none; transition: 0.3s;" onfocus="this.style.borderColor='var(--primary-blue)'; this.style.boxShadow='0 0 5px rgba(10,34,64,0.2)'" onblur="this.style.borderColor='#ccc'; this.style.boxShadow='none'">
-                <button type="submit" style="padding: 9px 12px; border-radius: 50%; background: var(--primary-blue); color: white; border: none; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); transition: 0.3s;" onmouseover="this.style.background='var(--accent-red)'" onmouseout="this.style.background='var(--primary-blue)'" title="Search">
+                <input type="text" name="q" placeholder="Search..." style="padding: 8px 15px; border-radius: 20px; border: 1px solid #ccc; font-size: 13px; width: 100%; outline: none; transition: 0.3s;">
+                <button type="submit" style="padding: 9px 12px; border-radius: 50%; background: var(--primary-blue); color: white; border: none; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;">
                     🔍
                 </button>
             </form>
@@ -192,6 +197,44 @@
             {% block content %}{% endblock %}
         </div>
     </div>
+
+    <!-- ================== MOBILE DROPDOWN FIX JS ================== -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            // மொபைல் ஸ்க்ரீனா (768px-க்கு கீழ) என்று செக் பண்றோம்
+            if (window.innerWidth <= 768) {
+                const dropdownToggles = document.querySelectorAll('.dropdown > a');
+                
+                dropdownToggles.forEach(toggle => {
+                    toggle.addEventListener('click', function(e) {
+                        e.preventDefault(); // மெனு கிளிக் ஆனா பேஜ் ரீஃப்ரெஷ் ஆகாம தடுக்க
+                        
+                        const menu = this.nextElementSibling;
+                        const isVisible = menu.style.display === 'block';
+                        
+                        // மத்த எல்லா மெனுவையும் க்ளோஸ் பண்றோம்
+                        document.querySelectorAll('.dropdown-menu').forEach(m => {
+                            m.style.display = 'none';
+                        });
+                        
+                        // தற்போதைய மெனுவை ஓபன் பண்றோம்
+                        if (!isVisible) {
+                            menu.style.display = 'block';
+                        }
+                    });
+                });
+                
+                // மெனுவுக்கு வெளியே எங்க கிளிக் பண்ணாலும் மெனு க்ளோஸ் ஆக
+                document.addEventListener('click', function(e) {
+                    if (!e.target.closest('.dropdown')) {
+                        document.querySelectorAll('.dropdown-menu').forEach(m => {
+                            m.style.display = 'none';
+                        });
+                    }
+                });
+            }
+        });
+    </script>
 
     {% block scripts %}{% endblock %}
 </body>

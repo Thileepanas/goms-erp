@@ -1,15 +1,16 @@
 from flask import (
     Flask, render_template, request,
     redirect, url_for, session, flash,
-    send_file
+    send_file, jsonify
 )
 import sqlite3
 import os
 import hashlib
 import hmac
 import secrets
-from datetime import datetime, timedelta  # Auto-logout-க்கு timedelta சேர்க்கப்பட்டுள்ளது
+from datetime import datetime, timedelta
 import pandas as pd
+import requests
 
 # ----------------------------------
 # APPLICATION SETTINGS
@@ -23,6 +24,8 @@ app.secret_key = os.environ.get(
     "FLASK_SECRET_KEY",
     "goms-local-development-key-change-before-deployment"
 )
+
+# 30 நிமிஷம் ஆக்டிவிட்டி இல்லைனா Auto Logout ஆகும்
 app.permanent_session_lifetime = timedelta(minutes=30)
 
 # ----------------------------------
@@ -249,6 +252,66 @@ def restrict_site_supervisor():
             return redirect(url_for('dashboard'))
 
 # ----------------------------------
+# GST API ROUTE (NEW)
+# ----------------------------------
+@app.route('/api/get-gst-details', methods=['POST'])
+def get_gst_details():
+    if not session.get("username"):
+        return jsonify({'error': 'Unauthorized'}), 401
+        
+    data = request.get_json()
+    gstin = data.get('gstin', '').strip().upper()
+    
+    if not gstin or len(gstin) != 15:
+        return jsonify({'error': 'Invalid GSTIN length'}), 400
+
+    # -----------------------------------------
+    # API KEY 
+    # -----------------------------------------
+    API_KEY = "7885a8b194157396ca486bb1c29d4319" 
+
+    api_url = f"https://sheet.gstincheck.co.in/check/{API_KEY}/{gstin}"
+    
+    try:
+        response = requests.get(api_url, timeout=10)
+        res_data = response.json()
+        
+        if res_data.get('flag'):
+            details = res_data.get('data', {})
+            legal_name = details.get('lgnm', '')
+            trade_name = details.get('tradeNam', '')
+            
+            # --- ADDRESS FIX ---
+            addr_obj = details.get('pradr', {}).get('addr', {})
+            
+            if isinstance(addr_obj, dict):
+                address_parts = [
+                    addr_obj.get('bno', ''),  # Building No
+                    addr_obj.get('flno', ''), # Floor No
+                    addr_obj.get('st', ''),   # Street
+                    addr_obj.get('loc', ''),  # Locality
+                    addr_obj.get('dst', ''),  # District
+                    addr_obj.get('stcd', ''), # State
+                    addr_obj.get('pncd', '')  # Pincode
+                ]
+                address = ", ".join([str(part) for part in address_parts if part])
+            else:
+                address = str(addr_obj)
+
+            final_name = trade_name if trade_name else legal_name
+            
+            return jsonify({
+                'legal_name': final_name,
+                'address': address
+            })
+        else:
+            return jsonify({'error': 'GST details not found'}), 404
+            
+    except Exception as e:
+        print(f"GST API Error: {e}")
+        return jsonify({'error': 'Failed to fetch GST details'}), 500
+
+# ----------------------------------
 # LOGIN & DASHBOARD
 # ----------------------------------
 
@@ -268,7 +331,7 @@ def login():
 
         if user:
             if verify_password(password, user["salt"], user["password_hash"]):
-                session.permanent = True  # <--- Auto Logout-க்கு இது முக்கியம்
+                session.permanent = True
                 session["username"] = user["username"]
                 session["role"] = user["role"] if "role" in user.keys() else "Admin"
                 return redirect(url_for("dashboard"))
@@ -716,7 +779,6 @@ def stock():
         current_rate = last_rate[0] if last_rate else 0
         total_value = available * current_rate
         
-        # 'id' புதுசா சேர்க்கப்பட்டிருக்கு (Delete பண்ண தேவை)
         summary_list.append({
             "id": m['id'], 
             "material_code": m['material_code'], 
@@ -752,7 +814,6 @@ def stock():
 
     return render_template("stock.html", summary_list=summary_list, ledger_list=ledger_list, low_stock_list=low_stock_list, project_material_report=project_material_report, project_list=project_list)
 
-
 @app.route("/stock/delete/<int:id>")
 def delete_stock(id):
     if not session.get("username"):
@@ -766,43 +827,13 @@ def delete_stock(id):
         conn.execute("DELETE FROM stock WHERE id = ?", (id,))
         conn.execute("DELETE FROM stock_ledger WHERE material_name = ?", (m_name,))
         conn.commit()
-        flash(f"Material '{m_name}' Deleted!", "success")
+        flash(f"Material '{m_name}' and its ledger history deleted successfully!", "success")
     else:
         flash("Material not found!", "error")
         
     conn.close()
     return redirect(url_for("stock"))
-    materials = conn.execute("SELECT * FROM stock").fetchall()
-    summary_list = []
-    for m in materials:
-        receipts = conn.execute("SELECT SUM(quantity) FROM stock_ledger WHERE material_name = ? AND transaction_type = 'Receipt'", (m['material_name'],)).fetchone()[0] or 0
-        issues = conn.execute("SELECT SUM(quantity) FROM stock_ledger WHERE material_name = ? AND transaction_type = 'Issue'", (m['material_name'],)).fetchone()[0] or 0
-        available = m['opening_stock'] + receipts - issues
-        last_rate = conn.execute("SELECT rate FROM stock_ledger WHERE material_name = ? AND transaction_type = 'Receipt' ORDER BY id DESC LIMIT 1", (m['material_name'],)).fetchone()
-        current_rate = last_rate[0] if last_rate else 0
-        total_value = available * current_rate
-        summary_list.append({"id": m['id'],"material_code": m['material_code'], "material_name": m['material_name'], "unit": m['unit'], "opening_stock": m['opening_stock'], "total_receipts": receipts, "total_issues": issues, "available_stock": available, "current_rate": current_rate, "total_value": total_value, "reorder_level": m['reorder_level']})
 
-    raw_ledger = conn.execute("SELECT * FROM stock_ledger ORDER BY transaction_date ASC, id ASC").fetchall()
-    ledger_list = []
-    running_balances = {}
-    for row in raw_ledger:
-        m_name = row['material_name']
-        if m_name not in running_balances:
-            m_data = conn.execute("SELECT opening_stock FROM stock WHERE material_name = ?", (m_name,)).fetchone()
-            running_balances[m_name] = m_data['opening_stock'] if m_data else 0
-        if row['transaction_type'] == 'Receipt':
-            running_balances[m_name] += row['quantity']
-        else:
-            running_balances[m_name] -= row['quantity']
-        ledger_list.append({"date": row['transaction_date'], "material": m_name, "type": row['transaction_type'], "invoice": row['invoice_no'], "project": row['project_name'], "in_qty": row['quantity'] if row['transaction_type'] == 'Receipt' else 0, "out_qty": row['quantity'] if row['transaction_type'] == 'Issue' else 0, "rate": row['rate'], "balance": running_balances[m_name]})
-
-    low_stock_list = [item for item in summary_list if item['available_stock'] <= item['reorder_level']]
-    project_material_report = conn.execute("SELECT project_name, material_name, SUM(quantity) as total_issued FROM stock_ledger WHERE transaction_type = 'Issue' AND project_name != '' AND project_name IS NOT NULL GROUP BY project_name, material_name ORDER BY project_name").fetchall()
-    project_list = conn.execute("SELECT project_name FROM projects").fetchall()
-    conn.close()
-
-    return render_template("stock.html", summary_list=summary_list, ledger_list=ledger_list, low_stock_list=low_stock_list, project_material_report=project_material_report, project_list=project_list)
 
 @app.route("/material_issue", methods=["GET", "POST"])
 def material_issue():
@@ -1211,13 +1242,20 @@ def parties():
             if not party_name or not gstin:
                 flash("Party Name and GSTIN are required.", "error")
             else:
-                conn.execute("INSERT INTO parties (party_name, party_type, contact_number, email, gstin, address, opening_balance) VALUES (?, ?, ?, ?, ?, ?, ?)", (party_name, party_type, contact_number, email, gstin, address, opening_balance))
-                conn.commit()
-                flash("Party created successfully!", "success")
-                conn.close()
-                return redirect(url_for("parties"))
+                # DUPLICATE CHECK
+                existing = conn.execute("SELECT id FROM parties WHERE party_name = ? OR gstin = ?", (party_name, gstin)).fetchone()
+                
+                if existing:
+                    flash(f"Error: Party Name '{party_name}' or GSTIN '{gstin}' already exists!", "error")
+                else:
+                    conn.execute("INSERT INTO parties (party_name, party_type, contact_number, email, gstin, address, opening_balance) VALUES (?, ?, ?, ?, ?, ?, ?)", (party_name, party_type, contact_number, email, gstin, address, opening_balance))
+                    conn.commit()
+                    flash("Party created successfully!", "success")
+                    conn.close()
+                    return redirect(url_for("parties"))
         except ValueError:
             flash("Invalid Opening Balance amount.", "error")
+            
     party_list = conn.execute("SELECT * FROM parties ORDER BY id DESC").fetchall()
     conn.close()
     return render_template("parties.html", parties=party_list)
@@ -1247,13 +1285,21 @@ def edit_party(id):
         address = request.form.get("address", "").strip()
         try:
             opening_balance = float(request.form.get("opening_balance") or 0)
-            conn.execute("UPDATE parties SET party_name=?, party_type=?, contact_number=?, email=?, gstin=?, address=?, opening_balance=? WHERE id=?", (party_name, party_type, contact_number, email, gstin, address, opening_balance, id))
-            conn.commit()
-            flash("Party updated successfully!", "success")
-            conn.close()
-            return redirect(url_for("parties"))
+            
+            # DUPLICATE CHECK
+            existing = conn.execute("SELECT id FROM parties WHERE (party_name = ? OR gstin = ?) AND id != ?", (party_name, gstin, id)).fetchone()
+            
+            if existing:
+                flash(f"Error: Party Name '{party_name}' or GSTIN '{gstin}' already exists in another record!", "error")
+            else:
+                conn.execute("UPDATE parties SET party_name=?, party_type=?, contact_number=?, email=?, gstin=?, address=?, opening_balance=? WHERE id=?", (party_name, party_type, contact_number, email, gstin, address, opening_balance, id))
+                conn.commit()
+                flash("Party updated successfully!", "success")
+                conn.close()
+                return redirect(url_for("parties"))
         except ValueError:
             flash("Invalid amount.", "error")
+            
     party = conn.execute("SELECT * FROM parties WHERE id = ?", (id,)).fetchone()
     conn.close()
     return render_template("edit_party.html", party=party)
@@ -2032,8 +2078,6 @@ def logout():
 # ----------------------------------
 # START APPLICATION
 # ----------------------------------
-
-# Gunicorn ரன் ஆகும்போதும் DB டேபிள்ஸ் கிரியேட் ஆக இதை வெளியே வைக்கணும்
 init_db()
 
 if __name__ == "__main__":

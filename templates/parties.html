@@ -1,127 +1,162 @@
 {% extends "base.html" %}
 
 {% block title %}Party Master{% endblock %}
-{% block page_title %}Party Master{% endblock %}
+{% block page_title %}Party / Vendor Management{% endblock %}
 
 {% block content %}
 <style>
-    @media print {
-        body * { visibility: hidden; }
-        .print-section, .print-section * { visibility: visible; }
-        .print-section { position: absolute; left: 0; top: 0; width: 100%; }
-        .no-print { display: none !important; }
-        .sidebar, .topbar { display: none; }
-        .card { box-shadow: none; border: none; padding: 0; }
-        th { background: #f1f5f9 !important; color: #000 !important; -webkit-print-color-adjust: exact; }
-        table, th, td { border: 1px solid #000 !important; }
-        .btn { display: none !important; }
-    }
+    .grid-form { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
+    @media(max-width: 768px) { .grid-form { grid-template-columns: 1fr; } }
+    
+    .input-group label { font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px; display: block; }
+    .input-group input, .input-group select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
 </style>
 
-<!-- Print Button (No Print) -->
-<div class="no-print" style="text-align: right; margin-bottom: 15px;">
-    <button onclick="window.print()" class="btn" style="background: #0a2240; padding: 10px 20px; font-size: 15px;">🖨️ Print Party List</button>
-</div>
-
-<!-- START PRINT SECTION -->
-<div class="print-section">
-    
-    <!-- Print Header -->
-    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px;">
-        <div>
-            <img src="{{ url_for('static', filename='logo.png') }}" alt="GOMS Logo" style="max-height: 60px;">
-        </div>
-        <div style="text-align: right;">
-            <h2 style="margin: 0; color: #0a2240;">GOMS Electricals Pvt. Ltd.</h2>
-            <p style="margin: 5px 0 0 0; font-size: 12px;">Party Master List</p>
-        </div>
-    </div>
-
-    <!-- Add Party Form (No Print) -->
-    <div class="card no-print" style="background: #f9fbfc; margin-bottom: 25px;">
-        <h3>Add New Party</h3>
-        <form method="POST">
-            <div class="grid-3">
-                <div>
-                    <label>Party Name *</label>
-                    <input name="party_name" required placeholder="e.g. Sathyamoorthy & Co">
-                </div>
-                <div>
-                    <label>Party Type *</label>
-                    <select name="party_type" required>
-                        <option value="Debtor">Debtor (Client / வாடிக்கையாளர்)</option>
-                        <option value="Creditor">Creditor (Vendor / சப்ளையர்)</option>
-                    </select>
-                </div>
-                <div>
-                    <label>Contact Number</label>
-                    <input name="contact_number" placeholder="Phone number">
-                </div>
-                <div>
-                    <label>Email</label>
-                    <input type="email" name="email" placeholder="Email address">
-                </div>
-                <div>
-                    <label>GSTIN</label>
-                    <input name="gstin" required placeholder="e.g. 33AACFV0222D1ZY">
-                </div>
-                <div>
-                    <label>Opening Balance (₹)</label>
-                    <input type="number" name="opening_balance" step="0.01" value="0">
-                </div>
-                <div style="grid-column: span 3;">
-                    <label>Address</label>
-                    <input name="address" placeholder="Full address...">
-                </div>
+<div class="card" style="background: #f9fbfc; border-top: 4px solid var(--primary-blue);">
+    <h3>Add New Party / Vendor</h3>
+    <form method="POST">
+        <div class="grid-form">
+            <div class="input-group">
+                <label>GSTIN *</label>
+                <input type="text" name="gstin" id="gstin" required placeholder="e.g. 33AACFV0222D1ZY" maxlength="15" style="text-transform: uppercase;">
+                <small style="color: #666; font-size: 11px;">Type 15 digits to auto-fetch</small>
             </div>
-            <button type="submit" class="btn" style="margin-top: 20px;">Save Party</button>
-        </form>
-    </div>
+            
+            <div class="input-group">
+                <label>Party Name *</label>
+                <input type="text" name="party_name" id="party_name" required placeholder="e.g. Sathyamoorthy & Co">
+            </div>
 
-    <!-- Party Table -->
-    <div class="card">
-        <h3>Party List</h3>
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Party Name</th>
-                        <th>Type</th>
-                        <th>Contact</th>
-                        <th>GSTIN</th>
-                        <th>Opening Bal</th>
-                        <th class="no-print">Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for p in parties %}
-                    <tr>
-                        <td>{{ p['id'] }}</td>
-                        <td><strong>{{ p['party_name'] }}</strong></td>
-                        <td>
-                            <span style="padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; 
-                            background: {% if p['party_type'] == 'Debtor' %}#e3f2fd{% else %}#fff0f0{% endif %};
-                            color: {% if p['party_type'] == 'Debtor' %}#0d47a1{% else %}#b42318{% endif %};">
-                                {{ p['party_type'] }}
-                            </span>
-                        </td>
-                        <td>{{ p['contact_number'] or '-' }}</td>
-                        <td>{{ p['gstin'] or '-' }}</td>
-                        <td>₹ {{ "%.2f"|format(p['opening_balance']) }}</td>
-                        <td class="no-print">
-                            <div style="display: flex; gap: 5px;">
-                                <a href="{{ url_for('edit_party', id=p['id']) }}" class="btn" style="padding: 6px 10px; font-size: 12px; background: #ff9800;">Edit</a>
-                                <a href="{{ url_for('delete_party', id=p['id']) }}" class="btn" style="padding: 6px 10px; font-size: 12px; background: #e31e24;" onclick="return confirm('Are you sure you want to delete this party?');">Delete</a>
-                            </div>
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr><td colspan="7" style="text-align: center;">No parties found. Add one above.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <div class="input-group">
+                <label>Party Type *</label>
+                <select name="party_type" required>
+                    <option value="Debtor">Debtor (Client / Customer)</option>
+                    <option value="Creditor">Creditor (Vendor / Supplier)</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label>Contact Number</label>
+                <input type="text" name="contact_number" placeholder="Phone Number">
+            </div>
+
+            <div class="input-group">
+                <label>Email Address</label>
+                <input type="email" name="email" placeholder="Email">
+            </div>
+
+            <div class="input-group">
+                <label>Opening Balance (₹)</label>
+                <input type="number" name="opening_balance" step="0.01" value="0" placeholder="0.00">
+            </div>
+
+            <div class="input-group" style="grid-column: span 3;">
+                <label>Address</label>
+                <input type="text" name="address" id="address" placeholder="Full Address">
+            </div>
         </div>
+        
+        <button type="submit" class="btn" style="margin-top: 15px; background: #176b38;">Save Party</button>
+    </form>
+</div>
+
+<div class="card">
+    <h3>Existing Parties</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Party Name</th>
+                    <th>Type</th>
+                    <th>GSTIN</th>
+                    <th>Contact</th>
+                    <th>Address</th>
+                    <th class="no-print" style="text-align: center;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in parties %}
+                <tr>
+                    <td><strong>{{ p['party_name'] }}</strong></td>
+                    <td>
+                        {% if p['party_type'] == 'Debtor' %}
+                            <span style="background: #e0f5e8; color: #176b38; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">Client</span>
+                        {% else %}
+                            <span style="background: #fff0f0; color: #b42318; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">Vendor</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ p['gstin'] or '-' }}</td>
+                    <td>{{ p['contact_number'] or '-' }}</td>
+                    <td>{{ p['address'] or '-' }}</td>
+                    <td class="no-print" style="text-align: center;">
+                        <div style="display: flex; gap: 5px; justify-content: center;">
+                            <a href="{{ url_for('edit_party', id=p['id']) }}" class="btn" style="padding: 4px 8px; font-size: 12px; background: #ffc107; color: black;">✏️ Modify</a>
+                            <a href="{{ url_for('delete_party', id=p['id']) }}" class="btn" style="padding: 4px 8px; font-size: 12px; background: #e31e24;" onclick="return confirm('Delete this party?');">❌</a>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" style="text-align: center;">No parties found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const gstInput = document.getElementById('gstin');
+        const nameInput = document.getElementById('party_name');
+        const addressInput = document.getElementById('address');
+
+        if (gstInput) {
+            gstInput.addEventListener('blur', function() {
+                const gstin = this.value.trim().toUpperCase();
+                
+                // GST எண் 15 டிஜிட் இருக்கான்னு செக் பண்றோம்
+                if (gstin.length === 15) {
+                    
+                    // லோடிங் அனிமேஷன்
+                    nameInput.placeholder = "Fetching details...";
+                    addressInput.placeholder = "Fetching details...";
+                    nameInput.style.backgroundColor = "#f0f0f0";
+                    addressInput.style.backgroundColor = "#f0f0f0";
+
+                    // Backend API-க்கு ரிக்வெஸ்ட் அனுப்புறோம்
+                    fetch('/api/get-gst-details', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ gstin: gstin })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.legal_name) {
+                            // விபரங்கள் கிடைச்சா ஆட்டோ ஃபில் ஆகும்
+                            nameInput.value = data.legal_name;
+                            addressInput.value = data.address;
+                        } else {
+                            alert('Invalid GSTIN or details not found.');
+                        }
+                        
+                        // டீஃபால்ட் செட்டிங்ஸ்க்கு திரும்ப வர்றோம்
+                        nameInput.placeholder = "e.g. Sathyamoorthy & Co";
+                        addressInput.placeholder = "Full Address";
+                        nameInput.style.backgroundColor = "";
+                        addressInput.style.backgroundColor = "";
+                    })
+                    .catch(error => {
+                        console.error('Error fetching GST:', error);
+                        alert('GST API Error. Please type the details manually.');
+                        nameInput.placeholder = "e.g. Sathyamoorthy & Co";
+                        addressInput.placeholder = "Full Address";
+                        nameInput.style.backgroundColor = "";
+                        addressInput.style.backgroundColor = "";
+                    });
+                }
+            });
+        }
+    });
+</script>
 {% endblock %}

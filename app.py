@@ -1963,9 +1963,8 @@ def logout():
 # ----------------------------------
 # START APPLICATION
 # ----------------------------------
-
+init_db()
 if __name__ == "__main__":
-    init_db()
     print("--------------------------------")
     print("GOMS ELECTRICAL PVT LTD ERP")
     print("--------------------------------")

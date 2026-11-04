@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block title %}Party Master{% endblock %}
+{% block page_title %}Party Master{% endblock %}
+
+{% block content %}
+<style>
+    @media print {
+        body * { visibility: hidden; }
+        .print-section, .print-section * { visibility: visible; }
+        .print-section { position: absolute; left: 0; top: 0; width: 100%; }
+        .no-print { display: none !important; }
+        .sidebar, .topbar { display: none; }
+        .card { box-shadow: none; border: none; padding: 0; }
+        th { background: #f1f5f9 !important; color: #000 !important; -webkit-print-color-adjust: exact; }
+        table, th, td { border: 1px solid #000 !important; }
+        .btn { display: none !important; }
+    }
+</style>
+
+<!-- Print Button (No Print) -->
+<div class="no-print" style="text-align: right; margin-bottom: 15px;">
+    <button onclick="window.print()" class="btn" style="background: #0a2240; padding: 10px 20px; font-size: 15px;">🖨️ Print Party List</button>
+</div>
+
+<!-- START PRINT SECTION -->
+<div class="print-section">
+    
+    <!-- Print Header -->
+    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px;">
+        <div>
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="GOMS Logo" style="max-height: 60px;">
+        </div>
+        <div style="text-align: right;">
+            <h2 style="margin: 0; color: #0a2240;">GOMS Electricals Pvt. Ltd.</h2>
+            <p style="margin: 5px 0 0 0; font-size: 12px;">Party Master List</p>
+        </div>
+    </div>
+
+    <!-- Add Party Form (No Print) -->
+    <div class="card no-print" style="background: #f9fbfc; margin-bottom: 25px;">
+        <h3>Add New Party</h3>
+        <form method="POST">
+            <div class="grid-3">
+                <div>
+                    <label>Party Name *</label>
+                    <input name="party_name" required placeholder="e.g. Sathyamoorthy & Co">
+                </div>
+                <div>
+                    <label>Party Type *</label>
+                    <select name="party_type" required>
+                        <option value="Debtor">Debtor (Client / வாடிக்கையாளர்)</option>
+                        <option value="Creditor">Creditor (Vendor / சப்ளையர்)</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Contact Number</label>
+                    <input name="contact_number" placeholder="Phone number">
+                </div>
+                <div>
+                    <label>Email</label>
+                    <input type="email" name="email" placeholder="Email address">
+                </div>
+                <div>
+                    <label>GSTIN</label>
+                    <input name="gstin" required placeholder="e.g. 33AACFV0222D1ZY">
+                </div>
+                <div>
+                    <label>Opening Balance (₹)</label>
+                    <input type="number" name="opening_balance" step="0.01" value="0">
+                </div>
+                <div style="grid-column: span 3;">
+                    <label>Address</label>
+                    <input name="address" placeholder="Full address...">
+                </div>
+            </div>
+            <button type="submit" class="btn" style="margin-top: 20px;">Save Party</button>
+        </form>
+    </div>
+
+    <!-- Party Table -->
+    <div class="card">
+        <h3>Party List</h3>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Party Name</th>
+                        <th>Type</th>
+                        <th>Contact</th>
+                        <th>GSTIN</th>
+                        <th>Opening Bal</th>
+                        <th class="no-print">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in parties %}
+                    <tr>
+                        <td>{{ p['id'] }}</td>
+                        <td><strong>{{ p['party_name'] }}</strong></td>
+                        <td>
+                            <span style="padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; 
+                            background: {% if p['party_type'] == 'Debtor' %}#e3f2fd{% else %}#fff0f0{% endif %};
+                            color: {% if p['party_type'] == 'Debtor' %}#0d47a1{% else %}#b42318{% endif %};">
+                                {{ p['party_type'] }}
+                            </span>
+                        </td>
+                        <td>{{ p['contact_number'] or '-' }}</td>
+                        <td>{{ p['gstin'] or '-' }}</td>
+                        <td>₹ {{ "%.2f"|format(p['opening_balance']) }}</td>
+                        <td class="no-print">
+                            <div style="display: flex; gap: 5px;">
+                                <a href="{{ url_for('edit_party', id=p['id']) }}" class="btn" style="padding: 6px 10px; font-size: 12px; background: #ff9800;">Edit</a>
+                                <a href="{{ url_for('delete_party', id=p['id']) }}" class="btn" style="padding: 6px 10px; font-size: 12px; background: #e31e24;" onclick="return confirm('Are you sure you want to delete this party?');">Delete</a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="7" style="text-align: center;">No parties found. Add one above.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

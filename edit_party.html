@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Party{% endblock %}
+{% block page_title %}Edit Party{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h3>Edit Party Details</h3>
+    <form method="POST">
+        <div class="grid-3">
+            <div>
+                <label>Party Name *</label>
+                <input name="party_name" value="{{ party['party_name'] }}" required>
+            </div>
+            <div>
+                <label>Party Type *</label>
+                <select name="party_type" required>
+                    <option value="Debtor" {% if party['party_type'] == 'Debtor' %}selected{% endif %}>Debtor (Client)</option>
+                    <option value="Creditor" {% if party['party_type'] == 'Creditor' %}selected{% endif %}>Creditor (Vendor)</option>
+                </select>
+            </div>
+            <div>
+                <label>Contact Number</label>
+                <input name="contact_number" value="{{ party['contact_number'] or '' }}">
+            </div>
+            <div>
+                <label>Email</label>
+                <input type="email" name="email" value="{{ party['email'] or '' }}">
+            </div>
+            <div>
+                <label>GSTIN</label>
+                <input name="gstin" required value="{{ party['gstin'] or '' }}">
+            </div>
+            <div>
+                <label>Opening Balance (₹)</label>
+                <input type="number" name="opening_balance" step="0.01" value="{{ party['opening_balance'] }}">
+            </div>
+            <div style="grid-column: span 3;">
+                <label>Address</label>
+                <input name="address" value="{{ party['address'] or '' }}">
+            </div>
+        </div>
+        <div style="margin-top: 20px; display: flex; gap: 10px;">
+            <button type="submit" class="btn">Update Party</button>
+            <a href="{{ url_for('parties') }}" class="btn" style="background: #666;">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

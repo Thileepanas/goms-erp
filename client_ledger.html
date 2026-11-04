@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Client Ledger{% endblock %}
+{% block page_title %}Client Ledger Account{% endblock %}
+
+{% block content %}
+<style>
+    @media print {
+        body * { visibility: hidden; }
+        .print-section, .print-section * { visibility: visible; }
+        .print-section { position: absolute; left: 0; top: 0; width: 100%; }
+        .no-print { display: none !important; }
+        .sidebar, .topbar { display: none; }
+        .card { box-shadow: none; border: none; padding: 0; }
+        th { background: #f1f5f9 !important; color: #000 !important; -webkit-print-color-adjust: exact; }
+        table, th, td { border: 1px solid #000 !important; }
+    }
+    .tally-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+    .tally-table th, .tally-table td { border: 1px solid #999; padding: 8px; }
+    .tally-table th { background: #f1f5f9; font-weight: bold; text-align: center; }
+    .tally-table td.amount { text-align: right; font-weight: bold; }
+    .tally-header { text-align: center; margin-bottom: 15px; line-height: 1.5; }
+    .tally-header h2 { margin: 0; font-size: 18px; color: #0a2240; }
+    .tally-header h3 { margin: 5px 0; font-size: 16px; color: #333; }
+    .tally-header p { margin: 0; font-size: 13px; color: #666; }
+</style>
+
+<div class="no-print" style="display: flex; border-bottom: 2px solid #ddd; margin-bottom: 20px;">
+    <a href="{{ url_for('accounts') }}" style="padding: 12px 20px; text-decoration: none; font-weight: bold; color: #666;">Project P&L</a>
+    <a href="{{ url_for('client_ledger') }}" style="padding: 12px 20px; text-decoration: none; font-weight: bold; color: var(--primary-blue); border-bottom: 3px solid var(--accent-red);">Client Ledger</a>
+    <a href="{{ url_for('vendor_ledger') }}" style="padding: 12px 20px; text-decoration: none; font-weight: bold; color: #666;">Vendor Ledger</a>
+</div>
+
+<div class="card no-print" style="background: #f9fbfc;">
+    <form method="GET" style="display: flex; gap: 15px; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <label style="margin: 0; white-space: nowrap;">Select Client:</label>
+            <select name="client" onchange="this.form.submit()" style="padding: 10px; border-radius: 6px; width: 300px;">
+                <option value="">-- Choose Client --</option>
+                {% for c in clients %}
+                    <option value="{{ c['name'] }}" {% if c['name'] == selected_client %}selected{% endif %}>{{ c['name'] }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% if selected_client %}
+            <button type="button" onclick="window.print()" class="btn" style="background: #0a2240;">🖨️ Print Ledger</button>
+        {% endif %}
+    </form>
+</div>
+
+{% if selected_client %}
+<div class="print-section card" style="padding: 30px; background: white;">
+    <div class="tally-header">
+        <h2>Goms Electricals Pvt. Ltd - 2025-2026</h2>
+        <h3>{{ selected_client }}</h3>
+        <p>Ledger Account</p>
+    </div>
+
+    <div class="table-wrap">
+        <table class="tally-table">
+            <thead>
+                <tr>
+                    <th style="width: 12%;">Date</th>
+                    <th style="width: 38%;">Particulars</th>
+                    <th style="width: 15%;">Debit (₹)</th>
+                    <th style="width: 15%;">Credit (₹)</th>
+                    <th style="width: 15%;">Balance (₹)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>01-Apr-2025</td>
+                    <td>To Opening Balance</td>
+                    <td class="amount">{{ "%.2f"|format(opening_balance) }}</td>
+                    <td class="amount"></td>
+                    <td class="amount">{{ "%.2f"|format(opening_balance) }}</td>
+                </tr>
+                
+                {% for t in transactions %}
+                <tr>
+                    <td style="text-align: center;">{{ t.date }}</td>
+                    <td>{{ t.particulars }}</td>
+                    <td class="amount">{% if t.debit > 0 %}{{ "%.2f"|format(t.debit) }}{% endif %}</td>
+                    <td class="amount">{% if t.credit > 0 %}{{ "%.2f"|format(t.credit) }}{% endif %}</td>
+                    <td class="amount">{{ "%.2f"|format(t.balance) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr style="background: #f9fbfc;">
+                    <td></td>
+                    <td style="text-align: right; font-weight: bold;">Total</td>
+                    <td class="amount">{{ "%.2f"|format(total_debit) }}</td>
+                    <td class="amount">{{ "%.2f"|format(total_credit) }}</td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td style="text-align: right; font-weight: bold;">By Closing Balance</td>
+                    <td class="amount">{% if closing_balance < 0 %}{{ "%.2f"|format(closing_balance|abs) }}{% endif %}</td>
+                    <td class="amount">{% if closing_balance > 0 %}{{ "%.2f"|format(closing_balance) }}{% endif %}</td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td></td>
+                    <td class="amount" style="border-top: 2px solid #000; border-bottom: 2px solid #000;">{{ "%.2f"|format(total_debit + (closing_balance|abs if closing_balance < 0 else 0)) }}</td>
+                    <td class="amount" style="border-top: 2px solid #000; border-bottom: 2px solid #000;">{{ "%.2f"|format(total_credit + (closing_balance if closing_balance > 0 else 0)) }}</td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Material Issue - MIN-{{ issue['id'] }}</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f9; color: #000; margin: 0; padding: 20px; font-size: 14px; }
+        .container { max-width: 800px; margin: 0 auto; background: #fff; padding: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-top: 5px solid #0a2240; border-bottom: 5px solid #e31e24; }
+        .header { display: flex; align-items: center; border-bottom: 3px solid #0a2240; padding-bottom: 15px; margin-bottom: 20px; }
+        .header img { max-height: 70px; margin-right: 20px; }
+        .header-text h1 { margin: 0; color: #0a2240; font-size: 28px; font-weight: 800; }
+        .header-text p { margin: 5px 0 0 0; font-size: 12px; font-weight: 600; color: #333; }
+        
+        .title { text-align: center; margin-bottom: 20px; }
+        .title h2 { display: inline-block; background: #0a2240; color: white; padding: 8px 40px; border-radius: 5px; margin: 0; font-size: 20px; letter-spacing: 2px; border-bottom: 4px solid #e31e24; }
+        
+        .top-info { display: flex; justify-content: space-between; margin-bottom: 20px; }
+        .top-info div p { margin: 5px 0; }
+        .top-info div span { font-weight: 700; color: #0a2240; }
+        
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { border: 1px solid #333; padding: 8px; text-align: left; }
+        th { background: #0a2240; color: white; font-weight: 700; text-align: center; font-size: 13px;}
+        td.amt { text-align: right; }
+        td.center { text-align: center; }
+        
+        .signatures { display: flex; justify-content: space-between; margin-top: 60px; border-top: 2px solid #0a2240; padding-top: 20px; }
+        .sig-box { text-align: center; width: 45%; }
+        .sig-box .label { background: #0a2240; color: white; display: inline-block; padding: 5px 20px; border-radius: 5px; font-weight: 700; margin-bottom: 30px; }
+        
+        @media print {
+            body { background: white; padding: 0; }
+            .container { box-shadow: none; padding: 0; max-width: 100%; border-top: none; border-bottom: none; }
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="no-print" style="text-align: right; max-width: 800px; margin: 0 auto 15px auto;">
+        <button onclick="window.print()" style="padding: 10px 20px; background: #176b38; color: white; border: none; font-weight: bold; border-radius: 5px; cursor: pointer; font-size: 16px;">🖨️ Print / Save as PDF</button>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo">
+            <div class="header-text">
+                <h1>GOMS POWER FAB PVT LTD</h1>
+                <p>#112, Singadivakkam & Post, Enathur (via), Kanchipuram Dist – 631561</p>
+            </div>
+        </div>
+
+        <div class="title">
+            <h2>MATERIAL ISSUE SLIP</h2>
+        </div>
+
+        <div class="top-info">
+            <div>
+                <p><span>Issue No</span> : MIN-{{ issue['id'] }}</p>
+                <p><span>Issue Date</span> : {{ issue['issue_date'] | dateformat }}</p>
+                <p><span>Issued To</span> : {{ issue['issued_to'] or 'Site Engineer' }}</p>
+            </div>
+            <div style="text-align: right;">
+                <p><span>Project</span> : {{ issue['project_name'] }}</p>
+                <p><span>Client</span> : {{ project['client_name'] if project else 'N/A' }}</p>
+            </div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 10%;">S.No</th>
+                    <th style="width: 50%;">Material Description</th>
+                    <th style="width: 15%;">Qty</th>
+                    <th style="width: 15%;">Rate (₹)</th>
+                    <th style="width: 10%;">Amount (₹)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set grand_total = 0 %}
+                {% for item in items %}
+                    {% set grand_total = grand_total + item['amount'] %}
+                <tr>
+                    <td class="center">{{ loop.index }}</td>
+                    <td>{{ item['material_name'] }}</td>
+                    <td class="center">{{ item['quantity'] }}</td>
+                    <td class="amt">{{ "%.2f"|format(item['rate']) }}</td>
+                    <td class="amt">{{ "%.2f"|format(item['amount']) }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="center">No items in this issue.</td></tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr style="background: #f9fbfc;">
+                    <td colspan="4" style="text-align: right; font-weight: bold;">Total Amount:</td>
+                    <td class="amt" style="font-weight: bold;">₹ {{ "%.2f"|format(grand_total) }}</td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <div class="signatures">
+            <div class="sig-box">
+                <div class="label">Issued By (Store)</div>
+                <div style="border-bottom: 1px solid #000; width: 80%; margin: 40px auto 0;"></div>
+            </div>
+            <div class="sig-box">
+                <div class="label">Received By (Site)</div>
+                <div style="border-bottom: 1px solid #000; width: 80%; margin: 40px auto 0;"></div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

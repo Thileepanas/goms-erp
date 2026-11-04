@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Work Progress{% endblock %}
+{% block page_title %}Work Progress (Measurement Book){% endblock %}
+
+{% block content %}
+<div class="card no-print" style="margin-bottom: 25px; background: #f9fbfc; border-left: 4px solid var(--primary-blue);">
+    <form method="GET" style="display: flex; gap: 15px; align-items: center;">
+        <label style="margin: 0; white-space: nowrap; font-weight: bold; font-size: 15px;">Select Project:</label>
+        <select name="project" onchange="this.form.submit()" style="padding: 12px; border-radius: 6px; max-width: 400px; width: 100%; font-size: 15px;">
+            <option value="">-- Choose Project --</option>
+            {% for p in project_list %}
+                <option value="{{ p['project_name'] }}" {% if p['project_name'] == selected_project %}selected{% endif %}>{{ p['project_name'] }}</option>
+            {% endfor %}
+        </select>
+    </form>
+</div>
+
+{% if selected_project %}
+<div class="no-print" style="text-align: right; margin-bottom: 15px;">
+    <a href="{{ url_for('generate_ra_bill', project_name=selected_project) }}" class="btn" style="background: #176b38; padding: 10px 20px; font-size: 15px;" onclick="return confirm('Generate RA Bills for all unbilled works?');">
+        🧾 Generate RA Bills (Supply & Erection)
+    </a>
+</div>
+
+<!-- 1. BOQ Work Summary Table -->
+<div class="card">
+    <h3>BOQ Work Status (Supply & Erection)</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 20%;">Description</th>
+                    <th style="width: 5%;">Unit</th>
+                    <th style="width: 8%;">Total BOQ</th>
+                    <th style="width: 8%;">Done Supply</th>
+                    <th style="width: 8%;">Done Erection</th>
+                    <th style="width: 8%;">Bal Supply</th>
+                    <th style="width: 8%;">Bal Erection</th>
+                    <th class="no-print" style="width: 35%;">Update Work</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in boq_progress_list %}
+                <tr>
+                    <td><strong>{{ item.description }}</strong></td>
+                    <td>{{ item.unit }}</td>
+                    <td>{{ item.total_qty }}</td>
+                    <td style="color: #176b38; font-weight: bold;">{{ item.done_supply }}</td>
+                    <td style="color: #0d47a1; font-weight: bold;">{{ item.done_erection }}</td>
+                    <td style="color: #b42318; font-weight: bold;">{{ item.balance_supply }}</td>
+                    <td style="color: #b42318; font-weight: bold;">{{ item.balance_erection }}</td>
+                    <td class="no-print">
+                        <form method="POST" style="display: flex; gap: 5px; align-items: center; flex-wrap: wrap;">
+                            <input type="hidden" name="boq_item_id" value="{{ item.id }}">
+                            <input type="date" name="work_date" required style="padding: 4px; font-size: 12px; width: 100px;" title="Work Date">
+                            <input type="number" name="qty_supply" step="0.01" max="{{ item.balance_supply }}" placeholder="Sup Qty" style="padding: 4px; font-size: 12px; width: 70px;" title="Supply Qty">
+                            <input type="number" name="qty_erection" step="0.01" max="{{ item.balance_erection }}" placeholder="Ere Qty" style="padding: 4px; font-size: 12px; width: 70px;" title="Erection Qty">
+                            <button type="submit" class="btn" style="padding: 4px 8px; font-size: 12px; background: #176b38;">+ Add</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="8" style="text-align: center;">No BOQ items found. Please add BOQ first.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 2. NEW: Work Progress History (Dates & Entries) -->
+<div class="card">
+    <h3>Work Progress History (Dates)</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Material Name</th>
+                    <th>Supply Qty</th>
+                    <th>Erection Qty</th>
+                    <th>Remarks</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for h in work_history %}
+                <tr>
+                    <td><strong>{{ h['work_date'] | dateformat }}</strong></td>
+                    <td>{{ h['material_name'] }}</td>
+                    <td style="color: #176b38;">{{ h['qty_supply'] }}</td>
+                    <td style="color: #0d47a1;">{{ h['qty_erection'] }}</td>
+                    <td>{{ h['remarks'] or '-' }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" style="text-align: center;">No work updates found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="card" style="text-align: center; padding: 50px;">
+    <h3 style="color: #666;">Please select a project above to view or update Work Progress.</h3>
+</div>
+{% endif %}
+{% endblock %}

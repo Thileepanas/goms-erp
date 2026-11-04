@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}GST Reconciliation{% endblock %}
+{% block page_title %}GSTR-2B Reconciliation{% endblock %}
+
+{% block content %}
+<div class="card" style="background: #f9fbfc;">
+    <h3>Upload GSTR-2B Excel File</h3>
+    <p style="color: #666; font-size: 14px; margin-bottom: 15px;">GST Excel GSTR-2B pls uplode .</p>
+    <form method="POST" enctype="multipart/form-data" style="display: flex; gap: 15px; align-items: center;">
+        <input type="file" name="file" accept=".xlsx, .xls, .csv" required style="padding: 10px; border: 1px solid #ccc; border-radius: 6px; background: white;">
+        <button type="submit" class="btn">Upload File</button>
+        <a href="{{ url_for('run_reconciliation') }}" class="btn" style="background: #ff9800;">⚙️ Run Auto-Reconcile</a>
+    </form>
+</div>
+
+<div class="card">
+    <h3>Reconciliation Results</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Invoice No</th>
+                    <th>Supplier</th>
+                    <th>2B Total (₹)</th>
+                    <th>Match Status</th>
+                    <th class="no-print">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in uploaded_data %}
+                <tr>
+                    <td><strong>{{ row['invoice_number'] }}</strong></td>
+                    <td>{{ row['supplier_name'] }}</td>
+                    <td>{{ "%.2f"|format(row['total_value']) }}</td>
+                    <td>
+                        {% if 'Matched' in row['match_status'] %}
+                            <span style="color: green; font-weight: bold;">{{ row['match_status'] }}</span>
+                        {% else %}
+                            <span style="color: red; font-weight: bold;">{{ row['match_status'] }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="no-print">
+                        <a href="{{ url_for('purchases') }}" class="btn" style="padding: 4px 8px; font-size: 12px;">View in Purchases</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" style="text-align: center;">No GSTR-2B data uploaded yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

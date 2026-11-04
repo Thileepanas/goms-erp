@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block page_title %}Filterable Reports{% endblock %}
+
+{% block content %}
+<style>
+    @media print {
+        body * { visibility: hidden; }
+        .print-section, .print-section * { visibility: visible; }
+        .print-section { position: absolute; left: 0; top: 0; width: 100%; }
+        .no-print { display: none !important; }
+        .sidebar, .topbar { display: none; }
+        .card { box-shadow: none; border: none; padding: 0; }
+        th { background: #f1f5f9 !important; color: #000 !important; -webkit-print-color-adjust: exact; }
+        table, th, td { border: 1px solid #000 !important; }
+        .btn { display: none !important; }
+        .summary-card { border: 1px solid #000 !important; -webkit-print-color-adjust: exact; }
+    }
+    .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px; }
+    .summary-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-top: 5px solid var(--primary-blue); text-align: center; }
+    .summary-card h4 { color: #666; font-size: 13px; margin-bottom: 10px; text-transform: uppercase; font-weight: 700; }
+    .summary-card h2 { color: var(--primary-blue); font-size: 26px; margin: 0; font-weight: 800; }
+    .summary-card.order { border-top-color: #0a2240; }
+    .summary-card.purchase { border-top-color: #e31e24; }
+    .summary-card.sales { border-top-color: #176b38; }
+    .report-title { margin-bottom: 15px; color: var(--primary-blue); border-bottom: 2px solid var(--accent-red); display: inline-block; padding-bottom: 5px; }
+    @media (max-width: 768px) { .summary-grid { grid-template-columns: 1fr; } }
+</style>
+
+<div class="card no-print" style="background: #f9fbfc; border-left: 4px solid var(--primary-blue);">
+    <form method="GET" style="display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 200px;">
+            <label>Project</label>
+            <select name="project" style="padding: 10px; border-radius: 6px; width: 100%;">
+                <option value="">-- All Projects --</option>
+                {% for p in project_list %}
+                    <option value="{{ p['project_name'] }}" {% if p['project_name'] == selected_project %}selected{% endif %}>{{ p['project_name'] }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div style="flex: 1; min-width: 200px;">
+            <label>Month</label>
+            <input type="month" name="month" value="{{ selected_month }}" style="padding: 10px; border-radius: 6px; width: 100%;">
+        </div>
+        <button type="submit" class="btn" style="padding: 11px 20px;">Filter Data</button>
+        <a href="{{ url_for('reports') }}" class="btn" style="background: #666; padding: 11px 20px;">Clear</a>
+        <button type="button" onclick="window.print()" class="btn" style="background: #0a2240; padding: 11px 20px;">🖨️ Print Report</button>
+    </form>
+</div>
+
+<div class="print-section">
+    <div style="display: none; text-align: center; margin-bottom: 20px;" class="d-print-block">
+        <h2 style="margin: 0; color: #0a2240;">GOMS Electricals Pvt. Ltd.</h2>
+        <p style="margin: 5px 0; font-size: 14px;">Filterable Report</p>
+        {% if selected_project %}<p style="margin: 0; font-size: 13px;">Project: {{ selected_project }}</p>{% endif %}
+        {% if selected_month %}<p style="margin: 0; font-size: 13px;">Month: {{ selected_month }}</p>{% endif %}
+        <hr style="border: 1px solid #000; margin-top: 10px;">
+    </div>
+
+    <div class="summary-grid">
+        <div class="summary-card order">
+            <h4>Total Order Value</h4>
+            <h2>₹ {{ "%.2f"|format(total_order_value or 0) }}</h2>
+        </div>
+        <div class="summary-card purchase">
+            <h4>Total Purchase Value</h4>
+            <h2>₹ {{ "%.2f"|format(total_purchase_value or 0) }}</h2>
+        </div>
+        <div class="summary-card sales">
+            <h4>Total Sales Value</h4>
+            <h2>₹ {{ "%.2f"|format(total_sales_value or 0) }}</h2>
+        </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr; gap: 30px;">
+        <div class="card">
+            <h3 class="report-title">Purchases (Invoices)</h3>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Date</th><th>Invoice</th><th>Project</th><th>Vendor</th><th>Total (₹)</th></tr></thead>
+                    <tbody>
+                        {% for p in purchase_list %}
+                        <tr>
+                            <td>{{ p['invoice_date'] | dateformat }}</td>
+                            <td>{{ p['invoice_number'] }}</td>
+                            <td>{{ p['project_name'] }}</td>
+                            <td>{{ p['supplier_name'] }}</td>
+                            <td style="font-weight: bold;">{{ "%.2f"|format(p['total_amount']) }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5" style="text-align: center;">No Purchase records found.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3 class="report-title">Sales Bills (Client Invoices)</h3>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Date</th><th>Bill No</th><th>Project</th><th>Total Value (₹)</th></tr></thead>
+                    <tbody>
+                        {% for b in bills_list %}
+                        <tr>
+                            <td>{{ b['bill_date'] | dateformat }}</td>
+                            <td>{{ b['bill_no'] }}</td>
+                            <td>{{ b['project_name'] }}</td>
+                            <td style="font-weight: bold; color: #176b38;">{{ "%.2f"|format(b['total_value']) }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="4" style="text-align: center;">No Sales Bill records found.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

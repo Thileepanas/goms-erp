@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+
+{% block title %}Purchases{% endblock %}
+{% block page_title %}Material Purchases{% endblock %}
+
+{% block content %}
+<style>
+    .item-desc { width: 100%; box-sizing: border-box; font-size: 13px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+    .item-qty { width: 100%; box-sizing: border-box; font-size: 13px; padding: 8px; text-align: center; border: 1px solid #ccc; border-radius: 4px; -moz-appearance: textfield; }
+    .item-qty::-webkit-outer-spin-button, .item-qty::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .item-rate { width: 100%; box-sizing: border-box; font-size: 13px; padding: 8px; text-align: right; border: 1px solid #ccc; border-radius: 4px; }
+    .item-gst { width: 100%; box-sizing: border-box; font-size: 13px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+    .item-total { font-size: 15px; font-weight: bold; color: #0d47a1; text-align: right; padding: 8px; }
+    .btn-add { background: #176b38; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    .btn-remove { background: #e31e24; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+</style>
+
+<!-- Print Button -->
+<div class="no-print" style="text-align: right; margin-bottom: 15px;">
+    <button onclick="window.print()" class="btn" style="background: #0a2240; padding: 10px 20px; font-size: 15px;">🖨️ Print Purchase List</button>
+</div>
+
+<div class="print-section">
+    <!-- Print Header -->
+    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px;">
+        <div><img src="{{ url_for('static', filename='logo.png') }}" alt="GOMS Logo" style="max-height: 60px;"></div>
+        <div style="text-align: right;">
+            <h2 style="margin: 0; color: #0a2240;">GOMS Electricals Pvt. Ltd.</h2>
+            <p style="margin: 5px 0 0 0; font-size: 12px;">Purchase List Report</p>
+        </div>
+    </div>
+
+    <!-- Add Purchase Form -->
+    <div class="card no-print" style="background: #f9fbfc; margin-bottom: 25px;">
+        <h3>Enter Purchase Invoice (Against PO)</h3>
+        
+        <!-- Datalist for Searchable Materials -->
+        <datalist id="material_list">
+            {% for m in materials %}
+                <option value="{{ m['material_name'] | e }}"></option>
+            {% endfor %}
+        </datalist>
+
+        <form method="POST" id="purchaseForm">
+            
+            <!-- HIDDEN INPUT FOR PO NUMBER (Important!) -->
+            <input type="hidden" name="po_number" id="po_number" value="">
+
+            <div class="grid-3">
+                
+                <!-- Item-wise PO Selector -->
+                <div style="grid-column: span 3;">
+                    <label style="color: var(--accent-red); font-size: 16px;">Select PO Material * (One by One)</label>
+                    <select id="po_item_selector" onchange="addPOItem(this)" style="border: 2px solid var(--accent-red); font-weight: bold; width: 100%; padding: 10px; border-radius: 4px;">
+                        <option value="">-- Select PO Item --</option>
+                        {% for item in po_items_list %}
+                            <option value="{{ item['po_id'] }}" 
+                                    data-project="{{ item['project_name'] }}"
+                                    data-vendor="{{ item['vendor_name'] }}"
+                                    data-material="{{ item['material_name'] }}"
+                                    data-qty="{{ item['quantity'] }}"
+                                    data-rate="{{ item['rate'] }}"
+                                    data-unit="{{ item['unit'] }}">
+                                PO #{{ item['po_id'] }} | {{ item['vendor_name'] }} | {{ item['material_name'] }} ({{ item['quantity'] }} {{ item['unit'] }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label>Project Name *</label>
+                    <input name="project_name" id="project_name" readonly required placeholder="Auto-filled" style="background: #e9ecef; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+                <div>
+                    <label>Supplier Name *</label>
+                    <input name="supplier_name" id="supplier_name" readonly required placeholder="Auto-filled" style="background: #e9ecef; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+                <div>
+                    <label>Invoice Number *</label>
+                    <input name="invoice_number" required placeholder="Enter Vendor's Bill No" style="padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+                <div>
+                    <label>Invoice Date</label>
+                    <input type="date" name="invoice_date" required style="padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+            </div>
+
+            <hr style="margin: 20px 0; border-top: 1px dashed #ccc;">
+            
+            <h4 style="margin-bottom: 10px; color: var(--primary-blue);">Materials List</h4>
+            <div class="table-wrap" style="background: white; padding: 10px; border-radius: 6px; border: 1px solid #ddd;">
+                <table class="table" id="itemsTable" style="margin: 0; width: 100%; min-width: 800px;">
+                    <thead>
+                        <tr style="background: #f1f5f9;">
+                            <th style="width: 25%;">Material (Type to search) *</th>
+                            <th style="width: 20%;">Description</th>
+                            <th style="width: 10%;">Qty *</th>
+                            <th style="width: 12%;">Rate (₹) *</th>
+                            <th style="width: 10%;">GST %</th>
+                            <th style="width: 13%; text-align: right;">Total (₹)</th>
+                            <th style="width: 10%; text-align: center;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="itemsBody">
+                        <!-- JS will populate rows here -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
+                <button type="button" onclick="addManualRow()" class="btn-add" style="padding: 10px 15px; font-size: 14px;">+ Add Material Manually</button>
+                <div style="font-size: 20px; font-weight: bold; color: #0d47a1;">
+                    Grand Total: ₹ <span id="grandTotalDisplay">0.00</span>
+                </div>
+            </div>
+
+            <button type="submit" class="btn" style="margin-top: 20px; width: 100%; background: #0d47a1; font-size: 16px; padding: 12px;">Save Purchase & Update Inventory</button>
+        </form>
+    </div>
+
+    <!-- Purchase Records Table -->
+    <div class="card">
+        <h3>Purchase Records</h3>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th>PO No</th><th>Invoice</th><th>Date</th><th>Project</th><th>Supplier</th><th>Total (₹)</th><th class="no-print">Action</th></tr>
+                </thead>
+                <tbody>
+                    {% for p in purchases %}
+                    <tr>
+                        <td><strong>PO #{{ p['po_number'] or '-' }}</strong></td>
+                        <td>{{ p['invoice_number'] }}</td>
+                        <td>{{ p['invoice_date'] | dateformat }}</td>
+                        <td>{{ p['project_name'] }}</td>
+                        <td>{{ p['supplier_name'] }}</td>
+                        <td><strong>{{ "%.2f"|format(p['total_amount']) }}</strong></td>
+                        <td class="no-print">
+                            <a href="{{ url_for('delete_purchase', id=p['id']) }}" class="btn" style="padding: 6px 10px; font-size: 12px; background: #e31e24;" onclick="return confirm('Delete this purchase?');">Delete</a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="7" style="text-align: center;">No purchase records found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // PO டிராப்-டவுன்ல இருந்து ஐட்டம் செலக்ட் பண்ணும்போது
+    function addPOItem(selectElement) {
+        const selected = selectElement.options[selectElement.selectedIndex];
+        
+        if (selected.value !== "") {
+            // முக்கியம்: ஹிட்டன் இன்புட்ல PO நம்பரை சேமிக்கிறோம்
+            document.getElementById("po_number").value = selected.value; 
+
+            const project = selected.getAttribute("data-project");
+            const vendor = selected.getAttribute("data-vendor");
+            const material = selected.getAttribute("data-material");
+            const qty = selected.getAttribute("data-qty");
+            const rate = selected.getAttribute("data-rate");
+
+            document.getElementById("project_name").value = project;
+            document.getElementById("supplier_name").value = vendor;
+
+            // டேபிளுக்கு புது வரிசையை ஆட் பண்றோம்
+            addRow(material, qty, rate);
+            
+            // அடுத்த ஐட்டத்தை செலக்ட் பண்ண திரும்ப ரீசெட் பண்றோம்
+            selectElement.value = ""; 
+        }
+    }
+
+    // புது வரிசை ஆட் பண்ற ஃபங்க்ஷன் (Searchable Input மாற்றம்)
+    function addRow(material, qty, rate) {
+        const tbody = document.getElementById("itemsBody");
+        const newRow = document.createElement("tr");
+        
+        newRow.innerHTML = `
+            <td>
+                <input type="text" name="material_name[]" value="${material}" list="material_list" class="item-desc" placeholder="Type material name..." required autocomplete="off">
+            </td>
+            <td><input type="text" name="description[]" class="item-desc" placeholder="Remarks"></td>
+            <td><input type="number" name="quantity[]" value="${qty}" step="any" required class="item-qty qty"></td>
+            <td><input type="number" name="rate[]" value="${rate}" step="any" required class="item-rate rate"></td>
+            <td>
+                <select name="gst_rate[]" class="item-gst gst">
+                    <option value="0">0%</option>
+                    <option value="5">5%</option>
+                    <option value="12">12%</option>
+                    <option value="18" selected>18%</option>
+                    <option value="28">28%</option>
+                </select>
+            </td>
+            <td class="rowTotal item-total">0.00</td>
+            <td style="text-align: center; white-space: nowrap;">
+                <button type="button" onclick="removeRow(this)" class="btn-remove">X</button>
+            </td>
+        `;
+        tbody.appendChild(newRow);
+        attachEvents(newRow);
+        calculateRow(newRow); 
+    }
+
+    function addManualRow() {
+        addRow("", 1, 0);
+    }
+
+    function removeRow(btn) {
+        const row = btn.closest('tr');
+        row.remove();
+        calculateGrandTotal();
+    }
+
+    function attachEvents(row) {
+        const qty = row.querySelector(".qty");
+        const rate = row.querySelector(".rate");
+        const gst = row.querySelector(".gst");
+        
+        if(qty) qty.addEventListener("input", () => calculateRow(row));
+        if(rate) rate.addEventListener("input", () => calculateRow(row));
+        if(gst) gst.addEventListener("change", () => calculateRow(row));
+    }
+
+    function calculateRow(row) {
+        const qty = parseFloat(row.querySelector(".qty").value) || 0;
+        const rate = parseFloat(row.querySelector(".rate").value) || 0;
+        const gst = parseFloat(row.querySelector(".gst").value) || 0;
+        
+        const basic = qty * rate;
+        const gstAmt = basic * (gst / 100);
+        const total = basic + gstAmt;
+        
+        row.querySelector(".rowTotal").textContent = total.toFixed(2);
+        calculateGrandTotal();
+    }
+
+    function calculateGrandTotal() {
+        let grandTotal = 0;
+        document.querySelectorAll("#itemsBody tr").forEach(row => {
+            grandTotal += parseFloat(row.querySelector(".rowTotal").textContent) || 0;
+        });
+        document.getElementById("grandTotalDisplay").textContent = grandTotal.toFixed(2);
+    }
+</script>
+{% endblock %}

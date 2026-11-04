@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Search Results{% endblock %}
+{% block page_title %}Search Results for "{{ query }}"{% endblock %}
+
+{% block content %}
+<style>
+    .result-card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 25px; }
+    .result-card h3 { color: var(--primary-blue); border-bottom: 2px solid var(--accent-red); display: inline-block; padding-bottom: 5px; margin-bottom: 15px; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 10px 15px; text-align: left; border-bottom: 1px solid var(--border); font-size: 14px; }
+    th { background: #f1f5f9; color: var(--primary-blue); }
+</style>
+
+{% if not projects and not purchases and not pos and not parties %}
+<div class="card" style="text-align: center; padding: 50px;">
+    <h2 style="color: #666;">No results found for "{{ query }}" 😔</h2>
+    <p>Please try searching with a different keyword.</p>
+</div>
+{% endif %}
+
+<!-- 1. Projects Results -->
+{% if projects %}
+<div class="result-card">
+    <h3>Projects ({{ projects|length }})</h3>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Project Name</th><th>Client</th><th>Status</th><th class="no-print">Action</th></tr></thead>
+            <tbody>
+                {% for p in projects %}
+                <tr>
+                    <td><strong>{{ p['project_name'] }}</strong></td>
+                    <td>{{ p['client_name'] }}</td>
+                    <td>{{ p['status'] }}</td>
+                    <td class="no-print"><a href="{{ url_for('accounts_entry', project=p['project_name']) }}" class="btn" style="padding: 4px 8px; font-size: 12px;">View Project</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- 2. Purchase Bills Results -->
+{% if purchases %}
+<div class="result-card">
+    <h3>Purchase Bills ({{ purchases|length }})</h3>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Invoice No</th><th>Supplier</th><th>Date</th><th>Total (₹)</th></tr></thead>
+            <tbody>
+                {% for p in purchases %}
+                <tr>
+                    <td><strong>{{ p['invoice_number'] }}</strong></td>
+                    <td>{{ p['supplier_name'] }}</td>
+                    <td>{{ p['invoice_date'] | dateformat }}</td>
+                    <td>{{ "%.2f"|format(p['total_amount']) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- 3. Purchase Orders (PO) Results -->
+{% if pos %}
+<div class="result-card">
+    <h3>Purchase Orders ({{ pos|length }})</h3>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>PO ID</th><th>Vendor</th><th>Project</th><th>PO Date</th></tr></thead>
+            <tbody>
+                {% for p in pos %}
+                <tr>
+                    <td><strong>PO #{{ p['id'] }}</strong></td>
+                    <td>{{ p['vendor_name'] }}</td>
+                    <td>{{ p['project_name'] }}</td>
+                    <td>{{ p['po_date'] | dateformat }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- 4. Parties (Client/Vendor) Results -->
+{% if parties %}
+<div class="result-card">
+    <h3>Parties / Vendors ({{ parties|length }})</h3>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Party Name</th><th>Type</th><th>Contact</th><th>GSTIN</th></tr></thead>
+            <tbody>
+                {% for p in parties %}
+                <tr>
+                    <td><strong>{{ p['party_name'] }}</strong></td>
+                    <td>{{ p['party_type'] }}</td>
+                    <td>{{ p['contact_number'] or '-' }}</td>
+                    <td>{{ p['gstin'] or '-' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

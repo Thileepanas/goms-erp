@@ -1,0 +1,315 @@
+{% extends "base.html" %}
+
+{% block title %}Inventory{% endblock %}
+{% block page_title %}Inventory Management{% endblock %}
+
+{% block content %}
+<style>
+    /* Tabs Style */
+    .tabs { display: flex; border-bottom: 2px solid #ddd; margin-bottom: 20px; }
+    .tab-btn { padding: 12px 20px; cursor: pointer; font-weight: bold; border: none; background: none; font-size: 15px; color: #666; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: 0.3s; }
+    .tab-btn.active { color: var(--primary-blue); border-bottom: 3px solid var(--accent-red); }
+    .tab-btn:hover { color: var(--primary-blue); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; animation: fadeIn 0.4s; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    
+    /* Status colors */
+    .badge-in { background: #e0f5e8; color: #176b38; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+    .badge-out { background: #fff0f0; color: #b42318; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+    .text-danger { color: #b42318; font-weight: bold; }
+
+    /* Print Settings */
+    @media print {
+        body * { visibility: hidden; }
+        .print-section, .print-section * { visibility: visible; }
+        .print-section { position: absolute; left: 0; top: 0; width: 100%; }
+        .no-print { display: none !important; }
+        .sidebar, .topbar { display: none; }
+        .card { box-shadow: none; border: none; padding: 0; }
+        th { background: #f1f5f9 !important; color: #000 !important; -webkit-print-color-adjust: exact; }
+        table, th, td { border: 1px solid #000 !important; }
+    }
+</style>
+
+<!-- TABS NAVIGATION (No Print) -->
+<div class="tabs no-print">
+    <button class="tab-btn active" onclick="openTab('overview')">Inventory Summary</button>
+    <button class="tab-btn" onclick="openTab('ledger')">Inventory Ledger</button>
+    <button class="tab-btn" onclick="openTab('reports')">Project Report & Low Stock</button>
+</div>
+
+<!-- ================= TAB 1: STOCK SUMMARY ================= -->
+<div id="overview" class="tab-content active">
+    
+    <!-- Add Material Form (No Print) -->
+    <div class="card no-print" style="background: #f9fbfc;">
+        <h3>Add New Material</h3>
+        <form method="POST">
+            <input type="hidden" name="form_type" value="material">
+            <div class="grid-3">
+                <div>
+                    <label>Material Code</label>
+                    <input name="material_code" placeholder="e.g. CAB001">
+                </div>
+                <div>
+                    <label>Material Name *</label>
+                    <input name="material_name" required placeholder="e.g. Copper Cable">
+                </div>
+                <div>
+                    <label>Unit</label>
+                    <select name="unit">
+                        <option>Nos</option><option>Meter</option><option>Kg</option>
+                        <option>Roll</option><option>Box</option><option>Set</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Opening Stock</label>
+                    <input name="opening_stock" type="number" min="0" step="0.01" value="0">
+                </div>
+                <div>
+                    <label>Reorder Level (Alert Qty)</label>
+                    <input name="reorder_level" type="number" min="0" step="0.01" value="0">
+                </div>
+            </div>
+            <button type="submit" class="btn" style="margin-top: 15px;">Save Material</button>
+        </form>
+    </div>
+
+    <!-- Print Button (No Print) -->
+    <div class="no-print" style="text-align: right; margin-bottom: 15px;">
+        <button onclick="window.print()" class="btn" style="background: #0a2240;">🖨️ Print Stock Summary</button>
+    </div>
+
+    <!-- START PRINT SECTION (SUMMARY) -->
+    <div class="print-section">
+        <!-- Print Header -->
+        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px;">
+            <div>
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="GOMS Logo" style="max-height: 60px;">
+            </div>
+            <div style="text-align: right;">
+                <h2 style="margin: 0; color: #0a2240;">GOMS Electricals Pvt. Ltd.</h2>
+                <p style="margin: 5px 0 0 0; font-size: 12px;">Inventory Summary Report</p>
+            </div>
+        </div>
+
+        <!-- Summary Table -->
+        <div class="card">
+            <h3>Current Inventory Summary</h3>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Material</th>
+                            <th>Opening</th>
+                            <th>Total In (+)</th>
+                            <th>Total Out (-)</th>
+                            <th>Available Balance</th>
+                            <th>Last Rate (₹)</th>
+                            <th>Total Value (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in summary_list %}
+                        <tr>
+                            <td>{{ item.material_code or '-' }}</td>
+                            <td><strong>{{ item.material_name }}</strong></td>
+                            <td>{{ item.opening_stock }} {{ item.unit }}</td>
+                            <td style="color: green;">+{{ item.total_receipts }}</td>
+                            <td style="color: red;">-{{ item.total_issues }}</td>
+                            <td>
+                                <strong style="{% if item.available_stock <= item.reorder_level %}color: red;{% else %}color: var(--primary-blue);{% endif %}">
+                                    {{ item.available_stock }} {{ item.unit }}
+                                </strong>
+                            </td>
+                            <td>{{ "%.2f"|format(item.current_rate) }}</td>
+                            <td><strong>{{ "%.2f"|format(item.total_value) }}</strong></td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="8" style="text-align: center;">No materials added yet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <!-- END PRINT SECTION -->
+</div>
+
+<!-- ================= TAB 2: STOCK LEDGER ================= -->
+<div id="ledger" class="tab-content">
+    
+    <!-- Add Ledger Entry Form (No Print) -->
+    <div class="card no-print" style="background: #f9fbfc;">
+        <h3>Add Inventory Entry</h3>
+        <form method="POST">
+            <input type="hidden" name="form_type" value="ledger">
+            <div class="grid-3">
+                <div>
+                    <label>Material *</label>
+                    <select name="material_name" required>
+                        <option value="">-- Select Material --</option>
+                        {% for m in summary_list %}
+                            <option value="{{ m.material_name }}">{{ m.material_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label>Type *</label>
+                    <select name="transaction_type" required>
+                        <option value="Receipt">Receipt (Stock In)</option>
+                        <option value="Issue">Issue (Stock Out)</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Date</label>
+                    <input type="date" name="transaction_date" required>
+                </div>
+                <div>
+                    <label>Invoice / Ref No</label>
+                    <input type="text" name="invoice_no" placeholder="e.g. INV-001">
+                </div>
+                <div>
+                    <label>Project (If Issue)</label>
+                    <select name="project_name">
+                        <option value="">-- None --</option>
+                        {% for p in project_list %}
+                            <option value="{{ p.project_name }}">{{ p.project_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label>Quantity *</label>
+                    <input type="number" name="quantity" step="0.01" required placeholder="0">
+                </div>
+                <div>
+                    <label>Rate (₹)</label>
+                    <input type="number" name="rate" step="0.01" placeholder="0.00">
+                </div>
+            </div>
+            <button type="submit" class="btn" style="margin-top: 15px;">Save Entry</button>
+        </form>
+    </div>
+
+    <!-- Ledger Table -->
+    <div class="card">
+        <h3>Inventory Ledger History</h3>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Material</th>
+                        <th>Invoice / Ref</th>
+                        <th>Project</th>
+                        <th>Receipt (In)</th>
+                        <th>Issue (Out)</th>
+                        <th>Rate (₹)</th>
+                        <th>Running Balance</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for l in ledger_list %}
+                    <tr>
+                        <td>{{ l.date }}</td>
+                        <td><strong>{{ l.material }}</strong></td>
+                        <td>{{ l.invoice or '-' }}</td>
+                        <td>{{ l.project or '-' }}</td>
+                        <td>{% if l.in_qty > 0 %}<span class="badge-in">{{ l.in_qty }}</span>{% endif %}</td>
+                        <td>{% if l.out_qty > 0 %}<span class="badge-out">{{ l.out_qty }}</span>{% endif %}</td>
+                        <td>{{ "%.2f"|format(l.rate) }}</td>
+                        <td><strong>{{ l.balance }}</strong></td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="8" style="text-align: center;">No ledger entries found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ================= TAB 3: REPORTS ================= -->
+<div id="reports" class="tab-content">
+    
+    <!-- Low Stock Report -->
+    <div class="card" style="border-left: 5px solid var(--accent-red);">
+        <h3>⚠️ Low Stock Alert Report</h3>
+        
+            <table>
+                <thead>
+                    <tr>
+                        <th>Material</th>
+                        <th>Current Stock</th>
+                        <th>Reorder Level</th>
+                        <th>Action Required</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in low_stock_list %}
+                    <tr>
+                        <td><strong>{{ item.material_name }}</strong></td>
+                        <td class="text-danger">{{ item.available_stock }} {{ item.unit }}</td>
+                        <td>{{ item.reorder_level }} {{ item.unit }}</td>
+                        <td><span style="background: #fff0f0; color: #b42318; padding: 5px 10px; border-radius: 5px; font-weight: bold;">Purchase Now!</span></td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="4" style="text-align: center; color: green; font-weight: bold;">All stocks are healthy! No action needed.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Project Material Report -->
+    <div class="card" style="border-left: 5px solid var(--primary-blue);">
+        <h3>Project-wise Material Report</h3>
+        <p style="color: #666; margin-bottom: 15px;">எந்த ப்ராஜெக்ட்டுக்கு எவ்வளவு மெட்டீரியல் பயன்படுத்தப்பட்டது என்பதை இங்கே பாருங்கள்.</p>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Project Name</th>
+                        <th>Material Name</th>
+                        <th>Total Used Quantity</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in project_material_report %}
+                    <tr>
+                        <td><strong>{{ p.project_name }}</strong></td>
+                        <td>{{ p.material_name }}</td>
+                        <td>{{ p.total_issued }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="3" style="text-align: center;">No material issued to projects yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openTab(tabName) {
+        // Hide all contents
+        var i, tabcontent, tablinks;
+        tabcontent = document.getElementsByClassName("tab-content");
+        for (i = 0; i < tabcontent.length; i++) {
+            tabcontent[i].classList.remove("active");
+        }
+        
+        // Remove active from buttons
+        tablinks = document.getElementsByClassName("tab-btn");
+        for (i = 0; i < tablinks.length; i++) {
+            tablinks[i].classList.remove("active");
+        }
+        
+        // Show current tab
+        document.getElementById(tabName).classList.add("active");
+        event.currentTarget.classList.add("active");
+    }
+</script>
+{% endblock %}

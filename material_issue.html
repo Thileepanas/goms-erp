@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Material Issue{% endblock %}
+{% block page_title %}Material Issue (Store to Site){% endblock %}
+
+{% block content %}
+<div class="card" style="background: #f9fbfc;">
+    <h3>Issue Material to Project</h3>
+    <form method="POST">
+        <div class="grid-3">
+            <div>
+                <label>Project Name *</label>
+                <select name="project_name" required>
+                    <option value="">-- Select Project --</option>
+                    {% for p in project_list %}<option value="{{ p['project_name'] }}">{{ p['project_name'] }}</option>{% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Issue Date</label>
+                <input type="date" name="issue_date" required>
+            </div>
+            <div>
+                <label>Issued To (Receiver Name)</label>
+                <input type="text" name="issued_to" placeholder="e.g. Site Engineer Name">
+            </div>
+        </div>
+
+        <hr style="margin: 20px 0; border-top: 1px dashed #ccc;">
+        
+        <h4 style="margin-bottom: 10px; color: var(--primary-blue);">Materials to Issue</h4>
+        <div class="table-wrap">
+            <table id="itemsTable">
+                <thead>
+                    <tr>
+                        <th style="width: 40%;">Material *</th>
+                        <th style="width: 15%;">Qty *</th>
+                        <th style="width: 20%;">Rate (₹)</th>
+                        <th style="width: 15%; text-align: right;">Amount (₹)</th>
+                        <th style="width: 10%; text-align: center;">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="itemsBody">
+                    <tr>
+                        <td>
+                            <select name="material_name[]" required class="material-select" onchange="fillRate(this)" style="padding: 8px;">
+                                <option value="">-- Select --</option>
+                                {% for m in materials %}<option value="{{ m['material_name'] }}" data-unit="{{ m['unit'] }}">{{ m['material_name'] }} ({{ m['unit'] }})</option>{% endfor %}
+                            </select>
+                        </td>
+                        <td><input type="number" name="quantity[]" step="0.01" required class="qty" style="padding: 8px;"></td>
+                        <td><input type="number" name="rate[]" step="0.01" class="rate" style="padding: 8px;" placeholder="0.00"></td>
+                        <td class="item-total" style="text-align: right; font-weight: bold;">0.00</td>
+                        <td style="text-align: center; white-space: nowrap;">
+                            <button type="button" onclick="addRowAfter(this)" class="btn" style="background: #176b38; padding: 6px 12px; font-size: 14px; margin-right: 5px;">+</button>
+                            <button type="button" onclick="removeRow(this)" class="btn" style="background: #e31e24; padding: 6px 12px; font-size: 14px;">X</button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
+            <div style="font-size: 20px; font-weight: bold; color: #0d47a1;">
+                Total Expense: ₹ <span id="grandTotalDisplay">0.00</span>
+            </div>
+        </div>
+        
+        <br>
+        <button type="submit" class="btn" style="width: 100%;">Save Material Issue</button>
+    </form>
+</div>
+
+<div class="card">
+    <h3>Material Issue History</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Issue ID</th>
+                    <th>Date</th>
+                    <th>Project</th>
+                    <th>Issued To</th>
+                    <th class="no-print">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for i in issue_list %}
+                <tr>
+                    <td><strong>MIN-{{ i['id'] }}</strong></td>
+                    <td>{{ i['issue_date'] }}</td>
+                    <td>{{ i['project_name'] }}</td>
+                    <td>{{ i['issued_to'] or '-' }}</td>
+                    <td class="no-print">
+                        <a href="{{ url_for('print_material_issue', id=i['id']) }}" target="_blank" class="btn" style="padding: 6px 10px; font-size: 12px; background: #0a2240;">🖨️ Print</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" style="text-align: center;">No material issues recorded yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function addRowAfter(btn) {
+        const row = btn.closest('tr');
+        const newRow = document.createElement("tr");
+        newRow.innerHTML = `
+            <td>
+                <select name="material_name[]" required class="material-select" onchange="fillRate(this)" style="padding: 8px;">
+                    <option value="">-- Select --</option>
+                    {% for m in materials %}<option value="{{ m['material_name'] }}" data-unit="{{ m['unit'] }}">{{ m['material_name'] }} ({{ m['unit'] }})</option>{% endfor %}
+                </select>
+            </td>
+            <td><input type="number" name="quantity[]" step="0.01" required class="qty" style="padding: 8px;"></td>
+            <td><input type="number" name="rate[]" step="0.01" class="rate" style="padding: 8px;" placeholder="0.00"></td>
+            <td class="item-total" style="text-align: right; font-weight: bold;">0.00</td>
+            <td style="text-align: center; white-space: nowrap;">
+                <button type="button" onclick="addRowAfter(this)" class="btn" style="background: #176b38; padding: 6px 12px; font-size: 14px; margin-right: 5px;">+</button>
+                <button type="button" onclick="removeRow(this)" class="btn" style="background: #e31e24; padding: 6px 12px; font-size: 14px;">X</button>
+            </td>
+        `;
+        row.after(newRow);
+        attachEvents(newRow);
+    }
+
+    function removeRow(btn) {
+        const row = btn.closest('tr');
+        row.remove();
+        calculateGrandTotal();
+    }
+
+    function attachEvents(row) {
+        const qty = row.querySelector(".qty");
+        const rate = row.querySelector(".rate");
+        if(qty) qty.addEventListener("input", () => calculateRow(row));
+        if(rate) rate.addEventListener("input", () => calculateRow(row));
+    }
+
+    function calculateRow(row) {
+        const qty = parseFloat(row.querySelector(".qty").value) || 0;
+        const rate = parseFloat(row.querySelector(".rate").value) || 0;
+        const total = qty * rate;
+        row.querySelector(".item-total").textContent = total.toFixed(2);
+        calculateGrandTotal();
+    }
+
+    function calculateGrandTotal() {
+        let grandTotal = 0;
+        document.querySelectorAll("#itemsBody tr").forEach(row => {
+            grandTotal += parseFloat(row.querySelector(".item-total").textContent) || 0;
+        });
+        document.getElementById("grandTotalDisplay").textContent = grandTotal.toFixed(2);
+    }
+
+    // செலக்ட் பண்ணும்போது ரேட்டை தானா ஃபில் பண்ண (Optional)
+    function fillRate(selectElement) {
+        // இங்க நாம விரும்பினா ஸ்டாக் லெட்ஜர்ல இருந்து கடைசி ரேட்டை எடுக்கலாம். 
+        // இப்போதைக்கு மேனுவலா டைப் பண்ணலாம்.
+    }
+
+    const firstRow = document.querySelector("#itemsBody tr");
+    if(firstRow) attachEvents(firstRow);
+</script>
+{% endblock %}

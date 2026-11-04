@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Vendor Report{% endblock %}
+{% block page_title %}Project-wise Vendor Report{% endblock %}
+
+{% block content %}
+<style>
+    @media print {
+        body * { visibility: hidden; }
+        .print-section, .print-section * { visibility: visible; }
+        .print-section { position: absolute; left: 0; top: 0; width: 100%; }
+        .no-print { display: none !important; }
+        .sidebar, .topbar { display: none; }
+        .card { box-shadow: none; border: none; padding: 0; }
+        th { background: #f1f5f9 !important; color: #000 !important; -webkit-print-color-adjust: exact; }
+        table, th, td { border: 1px solid #000 !important; }
+        .summary-card { border: 1px solid #000 !important; -webkit-print-color-adjust: exact; }
+    }
+    .vendor-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
+    .vendor-table th, .vendor-table td { border: 1px solid #999; padding: 10px; }
+    .vendor-table th { background: #f1f5f9; font-weight: bold; text-align: center; }
+    .vendor-table td.amount { text-align: right; font-weight: bold; }
+    .report-title { text-align: center; font-size: 20px; color: var(--primary-blue); margin-bottom: 20px; text-transform: uppercase; letter-spacing: 1px; }
+    
+    /* Summary Cards Style */
+    .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 25px; }
+    .summary-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); text-align: center; }
+    .summary-card h4 { color: #666; font-size: 12px; margin-bottom: 10px; text-transform: uppercase; font-weight: 700; }
+    .summary-card h2 { color: var(--primary-blue); font-size: 24px; margin: 0; font-weight: 800; }
+</style>
+
+<!-- Project Filter -->
+<div class="card no-print" style="background: #f9fbfc;">
+    <form method="GET" style="display: flex; gap: 15px; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <label style="margin: 0; white-space: nowrap; font-weight: bold;">Filter by Project:</label>
+            <select name="project" onchange="this.form.submit()" style="padding: 10px; border-radius: 6px; width: 300px;">
+                <option value="">-- All Projects --</option>
+                {% for p in project_list %}
+                    <option value="{{ p['project_name'] }}" {% if p['project_name'] == selected_project %}selected{% endif %}>{{ p['project_name'] }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="button" onclick="window.print()" class="btn" style="background: #0a2240;">🖨️ Print Report</button>
+    </form>
+</div>
+
+<div class="print-section">
+    <!-- Summary Cards (Project Value vs PO) -->
+    <div class="summary-grid">
+        <div class="summary-card" style="border-top: 3px solid #0a2240;">
+            <h4>Total Project Value (Incl. 18% GST)</h4>
+            <h3>₹ {{ "%.2f"|format(total_proj_val_gst) }}</h3>
+        </div>
+        <div class="summary-card" style="border-top: 4px solid #ff9800;">
+            <h4>Total PO Value</h4>
+            <h3>₹ {{ "%.2f"|format(grand_po) }}</h3>
+        </div>
+        <div class="summary-card" style="border-top: 4px solid {% if pl_amount >= 0 %}#176b38{% else %}#e31e24{% endif %};">
+            <h4>Estimated P&L (Project - PO)</h4>
+            <h3 style="color: {% if pl_amount >= 0 %}#176b38{% else %}#e31e24{% endif %};">₹ {{ "%.2f"|format(pl_amount) }}</h3>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3 class="report-title">Vendor-wise Material & Payment Report</h3>
+        
+        <div class="table-wrap">
+            <table class="vendor-table">
+                <thead>
+                    <tr>
+                        <th style="width: 15%;">Project Name</th>
+                        <th style="width: 20%;">Vendor Name</th>
+                        <th style="width: 12%; text-align: right;">PO Value (₹)</th>
+                        <th style="width: 12%; text-align: right;">Purchase (Bill) (₹)</th>
+                        <th style="width: 12%; text-align: right;">Paid Amt (₹)</th>
+                        <th style="width: 14%; text-align: right; color: #e31e24;">Balance Payable (₹)</th>
+                        <th style="width: 15%; text-align: right;">PO vs Bill Diff (₹)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in report_data %}
+                    <tr>
+                        <td><strong>{{ row.project }}</strong></td>
+                        <td>{{ row.vendor }}</td>
+                        <td class="amount" style="color: #ff9800;">{{ "%.2f"|format(row.po) }}</td>
+                        <td class="amount" style="color: #0d47a1;">{{ "%.2f"|format(row.purchase) }}</td>
+                        <td class="amount" style="color: #176b38;">{{ "%.2f"|format(row.paid) }}</td>
+                        <td class="amount" style="color: #e31e24; background: #fff0f0;">{{ "%.2f"|format(row.balance_payable) }}</td>
+                        <td class="amount" style="color: #666;">{{ "%.2f"|format(row.diff) }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="7" style="text-align: center;">No vendor records found for this project.</td></tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr style="background: #e2e8f0; font-weight: bold; font-size: 14px;">
+                        <td colspan="2" style="text-align: right;">Grand Total</td>
+                        <td class="amount" style="color: #ff9800;">{{ "%.2f"|format(grand_po) }}</td>
+                        <td class="amount" style="color: #0d47a1;">{{ "%.2f"|format(grand_purchase) }}</td>
+                        <td class="amount" style="color: #176b38;">{{ "%.2f"|format(grand_paid) }}</td>
+                        <td class="amount" style="color: #e31e24; background: #ffcccc;">{{ "%.2f"|format(grand_payable) }}</td>
+                        <td class="amount" style="color: #666;">{{ "%.2f"|format(grand_diff) }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

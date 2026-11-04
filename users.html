@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}User Management{% endblock %}
+{% block page_title %}User Management{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: 1fr 2fr; gap: 20px;">
+    
+    <!-- Add User Form -->
+    <div class="card" style="background: #f9fbfc; border-top: 4px solid var(--primary-blue);">
+        <h3>Create New User</h3>
+        <form method="POST">
+            <div style="margin-bottom: 15px;">
+                <label>Username *</label>
+                <input type="text" name="username" required placeholder="e.g. accountant1">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label>Password *</label>
+                <input type="password" name="password" required placeholder="Set a strong password">
+            </div>
+            <div style="margin-bottom: 20px;">
+                <label>Role / Designation *</label>
+                <select name="role" required>
+                    <option value="Admin">Admin (Full Access)</option>
+                    <option value="Accountant">Accountant</option>
+                    <option value="Store Keeper">Store Keeper</option>
+                    <option value="Site Supervisor">Site Supervisor</option>
+                </select>
+            </div>
+            <button type="submit" class="btn" style="width: 100%;">Create User</button>
+        </form>
+    </div>
+
+    <!-- User List -->
+    <div class="card">
+        <h3>Existing Users</h3>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Username</th>
+                        <th>Role</th>
+                        <th class="no-print" style="text-align: center;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                    <tr>
+                        <td>{{ u['id'] }}</td>
+                        <td><strong>{{ u['username'] }}</strong></td>
+                        <td>
+                            <span style="background: #e3f2fd; color: #0d47a1; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">
+                                {{ u['role'] or 'Admin' }}
+                            </span>
+                        </td>
+                        <td class="no-print" style="text-align: center;">
+                            {% if u['username'] != 'admin' %}
+                            <div style="display: flex; gap: 5px; justify-content: center; align-items: center;">
+                                
+                                <!-- Modify Role Form -->
+                                <form method="POST" action="{{ url_for('edit_user_role', id=u['id']) }}" style="display: flex; gap: 5px; margin: 0;">
+                                    <select name="role" style="padding: 4px; border-radius: 4px; font-size: 12px; border: 1px solid #ccc;">
+                                        <option value="Admin" {% if u['role'] == 'Admin' %}selected{% endif %}>Admin</option>
+                                        <option value="Accountant" {% if u['role'] == 'Accountant' %}selected{% endif %}>Accountant</option>
+                                        <option value="Store Keeper" {% if u['role'] == 'Store Keeper' %}selected{% endif %}>Store Keeper</option>
+                                        <option value="Site Supervisor" {% if u['role'] == 'Site Supervisor' %}selected{% endif %}>Site Supervisor</option>
+                                    </select>
+                                    <button type="submit" class="btn" style="padding: 4px 8px; font-size: 12px; background: #ffc107; color: black; font-weight: bold;">Modify</button>
+                                </form>
+                                
+                                <!-- Delete Button -->
+                                <a href="{{ url_for('delete_user', id=u['id']) }}" class="btn" style="padding: 4px 8px; font-size: 12px; background: #e31e24;" onclick="return confirm('Delete this user?');">Delete</a>
+                            </div>
+                            {% else %}
+                            <span style="color: #999; font-size: 12px;">Protected</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="4" style="text-align: center;">No users found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

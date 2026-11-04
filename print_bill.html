@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tax Invoice - {{ bill['bill_no'] }}</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f9; color: #000; margin: 0; padding: 20px; font-size: 12px; }
+        .container { max-width: 850px; margin: 0 auto; background: #fff; padding: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-top: 5px solid #0a2240; border-bottom: 5px solid #e31e24; }
+        .header { display: flex; align-items: center; border-bottom: 3px solid #0a2240; padding-bottom: 15px; margin-bottom: 20px; }
+        .header img { max-height: 70px; margin-right: 20px; }
+        .header-text h1 { margin: 0; color: #0a2240; font-size: 28px; font-weight: 800; }
+        .header-text p { margin: 5px 0 0 0; font-size: 12px; font-weight: 600; color: #333; }
+        
+        .title { text-align: center; margin-bottom: 20px; }
+        .title h2 { display: inline-block; background: #0a2240; color: white; padding: 8px 40px; border-radius: 5px; margin: 0; font-size: 20px; letter-spacing: 2px; border-bottom: 4px solid #e31e24; }
+        
+        .top-info { display: flex; justify-content: space-between; margin-bottom: 20px; }
+        .top-info div p { margin: 5px 0; }
+        .top-info div span { font-weight: 700; color: #0a2240; }
+        
+        .address-section { display: flex; gap: 20px; margin-bottom: 20px; }
+        .box { flex: 1; border: 2px solid #0a2240; border-radius: 8px; overflow: hidden; }
+        .box-header { background: #0a2240; color: white; padding: 8px 15px; font-weight: 700; }
+        .box-body { padding: 15px; line-height: 1.6; }
+        
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { border: 1px solid #333; padding: 8px; text-align: left; }
+        th { background: #0a2240; color: white; font-weight: 700; text-align: center; font-size: 11px;}
+        td.amt { text-align: right; }
+        td.center { text-align: center; }
+        
+        .totals { width: 55%; margin-left: auto; border: 1px solid #333; }
+        .totals table { margin: 0; }
+        .totals td { border: 1px solid #333; padding: 6px 10px; font-weight: 700; }
+        .totals .grand-total { background: #0a2240; color: white; font-size: 14px; border-top: 3px solid #e31e24; }
+        
+        .signatures { display: flex; justify-content: space-between; margin-top: 50px; border-top: 2px solid #0a2240; padding-top: 20px; }
+        .sig-box { text-align: center; width: 45%; }
+        .sig-box .label { background: #0a2240; color: white; display: inline-block; padding: 5px 20px; border-radius: 5px; font-weight: 700; margin-bottom: 30px; }
+        
+        @media print {
+            body { background: white; padding: 0; }
+            .container { box-shadow: none; padding: 0; max-width: 100%; border-top: none; border-bottom: none; }
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="no-print" style="text-align: right; max-width: 850px; margin: 0 auto 15px auto;">
+        <button onclick="window.print()" style="padding: 10px 20px; background: #176b38; color: white; border: none; font-weight: bold; border-radius: 5px; cursor: pointer; font-size: 16px;">🖨️ Print / Save as PDF</button>
+    </div>
+
+    <!-- SMART LOGIC: Check if this is a new combined bill or old bill -->
+    {% set ns = namespace(is_combined=false) %}
+    {% for item in items %}
+        {% if (item['supply_rate'] or 0) > 0 or (item['erection_rate'] or 0) > 0 %}
+            {% set ns.is_combined = true %}
+        {% endif %}
+    {% endfor %}
+
+    <div class="container">
+        <div class="header">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo">
+            <div class="header-text">
+                <h1>GOMS ELECTRICALS PVT LTD</h1>
+                <p>#112, Singadivakkam & Post, Enathur (via), Kanchipuram Dist – 631561</p>
+                <p>GSTIN: 33AACFV0222D1ZY</p>
+            </div>
+        </div>
+
+        <div class="title">
+            <h2>TAX INVOICE</h2>
+        </div>
+
+        <div class="top-info">
+            <div>
+                <p><span>Invoice No</span> : {{ bill['bill_no'] }}</p>
+                <p><span>Invoice Date</span> : {{ bill['bill_date'] | dateformat }}</p>
+            </div>
+            <div style="text-align: right;">
+                <p><span>Project</span> : {{ bill['project_name'] }}</p>
+            </div>
+        </div>
+
+        <div class="address-section">
+            <div class="box">
+                <div class="box-header">Bill To (Client)</div>
+                <div class="box-body">
+                    <p><strong>{{ project['client_name'] if project else 'N/A' }}</strong></p>
+                    <p><strong>Address :</strong> {{ client['address'] if client else 'N/A' }}</p>
+                    <p><strong>GSTIN :</strong> {{ client['gstin'] if client else 'N/A' }}</p>
+                    <p><strong>Contact :</strong> {{ client['contact_number'] if client else 'N/A' }}</p>
+                </div>
+            </div>
+            
+            <div class="box">
+                <div class="box-header">Site / Delivery Address</div>
+                <div class="box-body" style="min-height: 80px;">
+                    <p><strong>{{ bill['project_name'] }}</strong></p>
+                    <p>Tamil Nadu</p>
+                </div>
+            </div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 5%;">S.No</th>
+                    <th style="width: 28%;">Description</th>
+                    <th style="width: 9%;">HSN/SAC</th>
+                    <th style="width: 7%;">Qty</th>
+                    
+                    {% if ns.is_combined %}
+                        <th style="width: 10%;">Supply Rate</th>
+                        <th style="width: 10%;">Erection Rate</th>
+                    {% else %}
+                        <th style="width: 15%;">Rate</th>
+                    {% endif %}
+                    
+                    <th style="width: 8%;">GST %</th>
+                    <th style="width: 11%;">Basic (₹)</th>
+                    <th style="width: 12%;">Total (₹)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set sub_total = 0 %}
+                {% set total_gst = 0 %}
+                {% for item in items %}
+                    {% set sub_total = sub_total + item['basic_amount'] %}
+                    {% set total_gst = total_gst + item['gst_amount'] %}
+                <tr>
+                    <td class="center">{{ loop.index }}</td>
+                    <td>{{ item['description'] }}</td>
+                    <td class="center">{{ item['hsn_sac'] or '-' }}</td>
+                    <td class="center">{{ item['quantity'] }}</td>
+                    
+                    {% if ns.is_combined %}
+                        <td class="amt">{{ "%.2f"|format(item['supply_rate'] or 0) }}</td>
+                        <td class="amt">{{ "%.2f"|format(item['erection_rate'] or 0) }}</td>
+                    {% else %}
+                        <td class="amt">{{ "%.2f"|format(item['rate']) }}</td>
+                    {% endif %}
+                    
+                    <td class="center">{{ item['gst_rate'] }}%</td>
+                    <td class="amt">{{ "%.2f"|format(item['basic_amount']) }}</td>
+                    <td class="amt">{{ "%.2f"|format(item['total_amount']) }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="9" class="center">No items in this bill.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="totals">
+            <table>
+                <tr>
+                    <td style="text-align: right;">Taxable Value</td>
+                    <td class="amt">{{ "%.2f"|format(sub_total) }}</td>
+                </tr>
+                <tr>
+                    <td style="text-align: right;">CGST</td>
+                    <td class="amt">{{ "%.2f"|format(total_gst / 2) }}</td>
+                </tr>
+                <tr>
+                    <td style="text-align: right;">SGST</td>
+                    <td class="amt">{{ "%.2f"|format(total_gst / 2) }}</td>
+                </tr>
+                <tr class="grand-total">
+                    <td style="text-align: right;">Grand Total</td>
+                    <td class="amt">₹ {{ "%.2f"|format(bill['total_value']) }}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div style="margin-top: 30px;">
+            <p><strong>Amount in words:</strong> {{ amount_in_words }}</p>
+        </div>
+
+        <div class="signatures">
+            <div class="sig-box">
+                <div class="label">Client's Seal & Sign</div>
+                <div style="border-bottom: 1px solid #000; width: 80%; margin: 40px auto 0;"></div>
+            </div>
+            <div class="sig-box">
+                <div class="label">For GOMS ELECTRICALS PVT LTD</div>
+                <p style="font-weight: bold; margin-bottom: 10px; color: #0a2240;">Authorised Signatory</p>
+                <div style="border: 1px solid #000; height: 60px; width: 80%; margin: 0 auto;"></div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

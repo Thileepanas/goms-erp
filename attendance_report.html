@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Salary Report{% endblock %}
+{% block page_title %}Monthly Attendance & Salary Report{% endblock %}
+
+{% block content %}
+<div class="card no-print" style="background: #f9fbfc;">
+    <form method="GET" style="display: flex; gap: 15px; align-items: center;">
+        <label style="margin: 0; font-weight: bold;">Select Month:</label>
+        <input type="month" name="month" value="{{ selected_month }}" onchange="this.form.submit()" style="padding: 10px; border-radius: 6px;">
+        <button onclick="window.print()" type="button" class="btn" style="margin-left: auto; background: #0a2240;">🖨️ Print Report</button>
+    </form>
+</div>
+
+<div class="card">
+    <h3>Salary Report for {{ selected_month }}</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Labour Name</th>
+                    <th>Designation</th>
+                    <th>Project</th>
+                    <th>Daily Wage (₹)</th>
+                    <th>Present Days</th>
+                    <th>Total Salary (₹)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set total_payout = 0 %}
+                {% for item in report_data %}
+                    {% set total_payout = total_payout + item.total_salary %}
+                <tr>
+                    <td><strong>{{ item.name }}</strong></td>
+                    <td>{{ item.designation }}</td>
+                    <td>{{ item.project or '-' }}</td>
+                    <td>{{ "%.2f"|format(item.wage) }}</td>
+                    <td style="font-weight: bold; color: #0d47a1;">{{ item.present_days }}</td>
+                    <td style="font-weight: bold; color: #176b38;">₹ {{ "%.2f"|format(item.total_salary) }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" style="text-align: center;">No data found.</td></tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr style="background: #e2e8f0;">
+                    <td colspan="5" style="text-align: right; font-weight: bold; font-size: 16px;">Total Payout for {{ selected_month }}:</td>
+                    <td style="font-weight: bold; font-size: 16px; color: #176b38;">₹ {{ "%.2f"|format(total_payout) }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+{% endblock %}

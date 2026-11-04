@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}GOMS Dashboard{% endblock %}
+
+{% block content %}
+<style>
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 30px; }
+    .stat-card { background: white; padding: 20px 15px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-left: 5px solid var(--primary-blue); display: flex; flex-direction: column; justify-content: center; min-height: 110px; }
+    .stat-card h4 { color: #666; font-size: 11px; margin-bottom: 10px; text-transform: uppercase; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .stat-card h2 { color: var(--primary-blue); font-size: 24px; margin: 0; font-weight: 800; }
+    .stat-card.blue { border-left-color: var(--primary-blue); }
+    .stat-card.green { border-left-color: #176b38; }
+    .stat-card.red { border-left-color: var(--accent-red); }
+    .stat-card.orange { border-left-color: #ff9800; }
+    .welcome-banner { background: linear-gradient(135deg, var(--primary-blue), #123a66); color: white; padding: 25px 30px; border-radius: 8px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
+    .welcome-banner h1 { margin-bottom: 8px; font-size: 24px; }
+    .welcome-banner p { color: rgba(255,255,255,0.8); font-size: 14px; }
+    @media (max-width: 1024px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 600px) { .stats-grid { grid-template-columns: 1fr; } }
+</style>
+
+<div class="welcome-banner">
+    <div>
+        <h1>Welcome back, {{ session['username'] }}! 👋</h1>
+        <p>Here is what's happening with your projects today.</p>
+    </div>
+    <div style="font-size: 50px; opacity: 0.5;">⚡</div>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card blue">
+        <h4>Total Projects</h4>
+        <h2>{{ total_projects or '0' }}</h2>
+    </div>
+    <div class="stat-card green">
+        <h4>Project Value</h4>
+        <h2>₹ {{ "%.2f"|format(total_project_value or 0) }}</h2>
+    </div>
+    <div class="stat-card red">
+        <h4>Total Sales</h4>
+        <h2>₹ {{ "%.2f"|format(total_sales or 0) }}</h2>
+    </div>
+    <div class="stat-card orange">
+        <h4>Active Workers</h4>
+        <h2>{{ total_labour or '0' }}</h2>
+    </div>
+</div>
+{% endblock %}

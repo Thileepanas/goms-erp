@@ -3,7 +3,12 @@
 {% block page_title %}User Management{% endblock %}
 
 {% block content %}
-<div style="display: grid; grid-template-columns: 1fr 2fr; gap: 20px;">
+<style>
+    .user-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; }
+    @media (max-width: 900px) { .user-grid { grid-template-columns: 1fr; } }
+</style>
+
+<div class="user-grid">
     
     <!-- Add User Form -->
     <div class="card" style="background: #f9fbfc; border-top: 4px solid var(--primary-blue);">
@@ -11,11 +16,11 @@
         <form method="POST">
             <div style="margin-bottom: 15px;">
                 <label>Username *</label>
-                <input type="text" name="username" required placeholder="e.g. accountant1">
+                <input type="text" name="username" required placeholder="e.g. accountant1" autocomplete="off">
             </div>
             <div style="margin-bottom: 15px;">
                 <label>Password *</label>
-                <input type="password" name="password" required placeholder="Set a strong password">
+                <input type="password" name="password" required placeholder="Set a strong password" autocomplete="new-password">
             </div>
             <div style="margin-bottom: 20px;">
                 <label>Role / Designation *</label>
@@ -54,8 +59,9 @@
                             </span>
                         </td>
                         <td class="no-print" style="text-align: center;">
-                            {% if u['username'] != 'admin' %}
-                            <div style="display: flex; gap: 5px; justify-content: center; align-items: center;">
+                            <!-- FIX: Prevent deleting self -->
+                            {% if u['username'] != session['username'] %}
+                            <div style="display: flex; gap: 5px; justify-content: center; align-items: center; flex-wrap: wrap;">
                                 
                                 <!-- Modify Role Form -->
                                 <form method="POST" action="{{ url_for('edit_user_role', id=u['id']) }}" style="display: flex; gap: 5px; margin: 0;">
@@ -68,11 +74,11 @@
                                     <button type="submit" class="btn" style="padding: 4px 8px; font-size: 12px; background: #ffc107; color: black; font-weight: bold;">Modify</button>
                                 </form>
                                 
-                                <!-- Delete Button -->
-                                <a href="{{ url_for('delete_user', id=u['id']) }}" class="btn" style="padding: 4px 8px; font-size: 12px; background: #e31e24;" onclick="return confirm('Delete this user?');">Delete</a>
+                                <!-- FIX: Removed inline confirm -->
+                                <a href="{{ url_for('delete_user', id=u['id']) }}" class="btn" style="padding: 4px 8px; font-size: 12px; background: #e31e24;">Delete</a>
                             </div>
                             {% else %}
-                            <span style="color: #999; font-size: 12px;">Protected</span>
+                            <span style="color: #999; font-size: 12px; font-style: italic;">(You)</span>
                             {% endif %}
                         </td>
                     </tr>

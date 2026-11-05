@@ -4,17 +4,6 @@
 
 {% block content %}
 <style>
-    @media print {
-        body * { visibility: hidden; }
-        .print-section, .print-section * { visibility: visible; }
-        .print-section { position: absolute; left: 0; top: 0; width: 100%; }
-        .no-print { display: none !important; }
-        .sidebar, .topbar { display: none; }
-        .card { box-shadow: none; border: none; padding: 0; }
-        th { background: #f1f5f9 !important; color: #000 !important; -webkit-print-color-adjust: exact; }
-        table, th, td { border: 1px solid #000 !important; }
-        .summary-card { border: 1px solid #000 !important; -webkit-print-color-adjust: exact; }
-    }
     .vendor-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
     .vendor-table th, .vendor-table td { border: 1px solid #999; padding: 10px; }
     .vendor-table th { background: #f1f5f9; font-weight: bold; text-align: center; }
@@ -23,17 +12,33 @@
     
     /* Summary Cards Style */
     .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 25px; }
+    @media (max-width: 768px) { .summary-grid { grid-template-columns: 1fr; } }
     .summary-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); text-align: center; }
     .summary-card h4 { color: #666; font-size: 12px; margin-bottom: 10px; text-transform: uppercase; font-weight: 700; }
     .summary-card h2 { color: var(--primary-blue); font-size: 24px; margin: 0; font-weight: 800; }
+    
+    @media print {
+        .d-print-block { display: block !important; }
+    }
 </style>
+
+<!-- Print Header (Hidden on Screen) -->
+<div class="d-print-block" style="display: none; align-items: center; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px;">
+    <div>
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="GOMS Logo" style="max-height: 60px;">
+    </div>
+    <div style="text-align: right;">
+        <h2 style="margin: 0; color: #0a2240;">GOMS Electricals Pvt. Ltd.</h2>
+        <p style="margin: 5px 0 0 0; font-size: 12px;">Vendor Report</p>
+    </div>
+</div>
 
 <!-- Project Filter -->
 <div class="card no-print" style="background: #f9fbfc;">
-    <form method="GET" style="display: flex; gap: 15px; align-items: center; justify-content: space-between;">
-        <div style="display: flex; align-items: center; gap: 15px;">
+    <form method="GET" style="display: flex; gap: 15px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 15px; width: 100%; max-width: 500px;">
             <label style="margin: 0; white-space: nowrap; font-weight: bold;">Filter by Project:</label>
-            <select name="project" onchange="this.form.submit()" style="padding: 10px; border-radius: 6px; width: 300px;">
+            <select name="project" onchange="this.form.submit()" style="padding: 10px; border-radius: 6px; width: 100%;">
                 <option value="">-- All Projects --</option>
                 {% for p in project_list %}
                     <option value="{{ p['project_name'] }}" {% if p['project_name'] == selected_project %}selected{% endif %}>{{ p['project_name'] }}</option>
@@ -45,19 +50,19 @@
 </div>
 
 <div class="print-section">
-    <!-- Summary Cards (Project Value vs PO) -->
+    <!-- Summary Cards -->
     <div class="summary-grid">
-        <div class="summary-card" style="border-top: 3px solid #0a2240;">
+        <div class="summary-card" style="border-top: 4px solid #0a2240;">
             <h4>Total Project Value (Incl. 18% GST)</h4>
-            <h3>₹ {{ "%.2f"|format(total_proj_val_gst) }}</h3>
+            <h3>₹ {{ (total_proj_val_gst or 0) | inr }}</h3>
         </div>
         <div class="summary-card" style="border-top: 4px solid #ff9800;">
             <h4>Total PO Value</h4>
-            <h3>₹ {{ "%.2f"|format(grand_po) }}</h3>
+            <h3>₹ {{ (grand_po or 0) | inr }}</h3>
         </div>
-        <div class="summary-card" style="border-top: 4px solid {% if pl_amount >= 0 %}#176b38{% else %}#e31e24{% endif %};">
+        <div class="summary-card" style="border-top: 4px solid {% if (pl_amount or 0) >= 0 %}#176b38{% else %}#e31e24{% endif %};">
             <h4>Estimated P&L (Project - PO)</h4>
-            <h3 style="color: {% if pl_amount >= 0 %}#176b38{% else %}#e31e24{% endif %};">₹ {{ "%.2f"|format(pl_amount) }}</h3>
+            <h3 style="color: {% if (pl_amount or 0) >= 0 %}#176b38{% else %}#e31e24{% endif %};">₹ {{ (pl_amount or 0) | inr }}</h3>
         </div>
     </div>
 
@@ -82,11 +87,12 @@
                     <tr>
                         <td><strong>{{ row.project }}</strong></td>
                         <td>{{ row.vendor }}</td>
-                        <td class="amount" style="color: #ff9800;">{{ "%.2f"|format(row.po) }}</td>
-                        <td class="amount" style="color: #0d47a1;">{{ "%.2f"|format(row.purchase) }}</td>
-                        <td class="amount" style="color: #176b38;">{{ "%.2f"|format(row.paid) }}</td>
-                        <td class="amount" style="color: #e31e24; background: #fff0f0;">{{ "%.2f"|format(row.balance_payable) }}</td>
-                        <td class="amount" style="color: #666;">{{ "%.2f"|format(row.diff) }}</td>
+                        <!-- FIX: inr filter -->
+                        <td class="amount" style="color: #ff9800;">{{ (row.po or 0) | inr }}</td>
+                        <td class="amount" style="color: #0d47a1;">{{ (row.purchase or 0) | inr }}</td>
+                        <td class="amount" style="color: #176b38;">{{ (row.paid or 0) | inr }}</td>
+                        <td class="amount" style="color: #e31e24; background: #fff0f0;">{{ (row.balance_payable or 0) | inr }}</td>
+                        <td class="amount" style="color: #666;">{{ (row.diff or 0) | inr }}</td>
                     </tr>
                     {% else %}
                     <tr><td colspan="7" style="text-align: center;">No vendor records found for this project.</td></tr>
@@ -95,11 +101,12 @@
                 <tfoot>
                     <tr style="background: #e2e8f0; font-weight: bold; font-size: 14px;">
                         <td colspan="2" style="text-align: right;">Grand Total</td>
-                        <td class="amount" style="color: #ff9800;">{{ "%.2f"|format(grand_po) }}</td>
-                        <td class="amount" style="color: #0d47a1;">{{ "%.2f"|format(grand_purchase) }}</td>
-                        <td class="amount" style="color: #176b38;">{{ "%.2f"|format(grand_paid) }}</td>
-                        <td class="amount" style="color: #e31e24; background: #ffcccc;">{{ "%.2f"|format(grand_payable) }}</td>
-                        <td class="amount" style="color: #666;">{{ "%.2f"|format(grand_diff) }}</td>
+                        <!-- FIX: inr filter -->
+                        <td class="amount" style="color: #ff9800;">{{ (grand_po or 0) | inr }}</td>
+                        <td class="amount" style="color: #0d47a1;">{{ (grand_purchase or 0) | inr }}</td>
+                        <td class="amount" style="color: #176b38;">{{ (grand_paid or 0) | inr }}</td>
+                        <td class="amount" style="color: #e31e24; background: #ffcccc;">{{ (grand_payable or 0) | inr }}</td>
+                        <td class="amount" style="color: #666;">{{ (grand_diff or 0) | inr }}</td>
                     </tr>
                 </tfoot>
             </table>

@@ -4,30 +4,36 @@
 
 {% block content %}
 <style>
-    /* Exact styling from entry.html */
-    .card { background: #f9fbfc; padding: 20px; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border-top: 4px solid #0d47a1; margin-bottom: 25px; }
+    /* Tabs Style - Exactly like entry.html */
+    .tabs { display: flex; border-bottom: 2px solid #ddd; margin-bottom: 20px; flex-wrap: wrap; }
+    .tab-btn { padding: 12px 20px; cursor: pointer; font-weight: bold; border: none; background: none; font-size: 15px; color: #666; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: 0.3s; }
+    .tab-btn.active { color: var(--primary-blue); border-bottom: 3px solid var(--accent-red); }
+    .tab-btn:hover { color: var(--primary-blue); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; animation: fadeIn 0.4s; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    /* Card & Table Style */
+    .card { background: #f9fbfc; padding: 20px; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border-top: 4px solid #0d47a1; }
     .section-title { color: #0a2240; font-size: 20px; font-weight: bold; border-bottom: 2px solid #e31e24; display: inline-block; padding-bottom: 5px; margin-bottom: 20px; margin-top: 0; }
     
-    /* Table Wrapper - to prevent page horizontal scroll */
-    .white-box { background: white; padding: 15px; border-radius: 6px; border: 1px solid #ddd; }
-    .table-wrap { overflow-x: auto; width: 100%; }
-    table { width: 100%; border-collapse: collapse; margin: 0; min-width: 900px; table-layout: fixed;}
+    .white-box { background: white; padding: 15px; border-radius: 6px; border: 1px solid #ddd; margin-bottom: 15px; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; margin: 0; min-width: 800px; }
     th, td { padding: 10px; text-align: left; border-bottom: 1px solid #eee; font-size: 14px; }
     th { background: #f1f5f9; color: var(--primary-blue); font-weight: bold; }
 
-    /* Compact Update Form */
+    /* Forms & Buttons */
     .update-form { display: flex; gap: 5px; align-items: center; justify-content: center; }
-    .update-form input { padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; box-sizing: border-box; }
+    .update-form input { padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; }
     .update-form button { padding: 6px 12px; font-size: 12px; background: #176b38; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; white-space: nowrap; }
-
-    /* Action Buttons */
-    .btn-action { padding: 5px 10px; font-size: 12px; text-decoration: none; border-radius: 4px; color: white; display: inline-block; margin: 2px; font-weight: bold; }
+    
+    .btn-action { padding: 6px 10px; font-size: 12px; text-decoration: none; border-radius: 4px; color: white; display: inline-block; font-weight: bold; }
     .btn-edit { background: #ffc107; color: black; }
     .btn-del { background: #e31e24; }
 </style>
 
 <!-- Project Selector -->
-<div class="card no-print" style="border-top: none; border-left: 4px solid var(--primary-blue);">
+<div class="card no-print" style="margin-bottom: 25px; border-top: none; border-left: 4px solid var(--primary-blue); box-shadow: none;">
     <form method="GET" style="display: flex; gap: 15px; align-items: center;">
         <label style="margin: 0; white-space: nowrap; font-weight: bold; font-size: 15px;">Select Project:</label>
         <select name="project" onchange="this.form.submit()" style="padding: 12px; border-radius: 6px; max-width: 400px; width: 100%; font-size: 15px; border: 1px solid #ccc;">
@@ -46,93 +52,99 @@
     </a>
 </div>
 
-<!-- ======================================================= -->
-<!-- 1. BOQ Work Status (Supply & Erection)                 -->
-<!-- ======================================================= -->
-<div class="card">
-    <h3 class="section-title">1. BOQ Work Status (Supply & Erection)</h3>
-    <div class="white-box table-wrap">
-        <table>
-            <thead>
-                <tr>
-                    <th style="width: 22%;">Description</th>
-                    <th style="width: 6%; text-align: center;">Unit</th>
-                    <th style="width: 7%; text-align: center;">Total</th>
-                    <th style="width: 7%; text-align: center;">Done Sup</th>
-                    <th style="width: 7%; text-align: center;">Done Ere</th>
-                    <th style="width: 7%; text-align: center;">Bal Sup</th>
-                    <th style="width: 7%; text-align: center;">Bal Ere</th>
-                    <th class="no-print" style="width: 37%; text-align: center;">Update Work</th> 
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in boq_progress_list %}
-                <tr>
-                    <td><strong>{{ item.description }}</strong></td>
-                    <td style="text-align: center;">{{ item.unit }}</td>
-                    <td style="text-align: center;">{{ item.total_qty }}</td>
-                    <td style="color: #176b38; font-weight: bold; text-align: center;">{{ item.done_supply }}</td>
-                    <td style="color: #0d47a1; font-weight: bold; text-align: center;">{{ item.done_erection }}</td>
-                    <td style="color: #b42318; font-weight: bold; text-align: center;">{{ item.balance_supply }}</td>
-                    <td style="color: #b42318; font-weight: bold; text-align: center;">{{ item.balance_erection }}</td>
-                    <td class="no-print">
-                        <form method="POST" class="update-form">
-                            <input type="hidden" name="boq_item_id" value="{{ item.id }}">
-                            <input type="date" name="work_date" required class="work-date-input" style="width: 110px;" title="Date">
-                            <input type="number" name="qty_supply" step="0.01" max="{{ item.balance_supply }}" placeholder="Sup Qty" style="width: 70px;" title="Supply Qty">
-                            <input type="number" name="qty_erection" step="0.01" max="{{ item.balance_erection }}" placeholder="Ere Qty" style="width: 70px;" title="Erection Qty">
-                            <button type="submit">+ Add</button>
-                        </form>
-                    </td>
-                </tr>
-                {% else %}
-                <tr><td colspan="8" style="text-align: center; padding: 20px;">No BOQ items found.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<!-- 2 TABS NAVIGATION -->
+<div class="tabs no-print">
+    <button type="button" class="tab-btn active" onclick="openTab('tab1', event)">1. BOQ Work Status (Supply & Erection)</button>
+    <button type="button" class="tab-btn" onclick="openTab('tab2', event)">2. Work Progress History (Dates)</button>
+</div>
+
+<!-- ================= TAB 1: BOQ WORK STATUS ================= -->
+<div id="tab1" class="tab-content active">
+    <div class="card">
+        <h3 class="section-title">1. BOQ Work Status (Supply & Erection)</h3>
+        <div class="white-box">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 25%;">Description</th>
+                        <th style="width: 6%; text-align: center;">Unit</th>
+                        <th style="width: 8%; text-align: center;">Total</th>
+                        <th style="width: 8%; text-align: center;">Done Sup</th>
+                        <th style="width: 8%; text-align: center;">Done Ere</th>
+                        <th style="width: 8%; text-align: center;">Bal Sup</th>
+                        <th style="width: 8%; text-align: center;">Bal Ere</th>
+                        <th class="no-print" style="width: 29%; text-align: center;">Update Work</th> 
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in boq_progress_list %}
+                    <tr>
+                        <td><strong>{{ item.description }}</strong></td>
+                        <td style="text-align: center;">{{ item.unit }}</td>
+                        <td style="text-align: center;">{{ item.total_qty }}</td>
+                        <td style="color: #176b38; font-weight: bold; text-align: center;">{{ item.done_supply }}</td>
+                        <td style="color: #0d47a1; font-weight: bold; text-align: center;">{{ item.done_erection }}</td>
+                        <td style="color: #b42318; font-weight: bold; text-align: center;">{{ item.balance_supply }}</td>
+                        <td style="color: #b42318; font-weight: bold; text-align: center;">{{ item.balance_erection }}</td>
+                        <td class="no-print">
+                            <form method="POST" class="update-form">
+                                <input type="hidden" name="boq_item_id" value="{{ item.id }}">
+                                <input type="date" name="work_date" required class="work-date-input" style="width: 110px;" title="Date">
+                                <input type="number" name="qty_supply" step="0.01" max="{{ item.balance_supply }}" placeholder="Sup Qty" style="width: 65px;" title="Supply Qty">
+                                <input type="number" name="qty_erection" step="0.01" max="{{ item.balance_erection }}" placeholder="Ere Qty" style="width: 65px;" title="Erection Qty">
+                                <button type="submit">+ Add</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="8" style="text-align: center; padding: 20px;">No BOQ items found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
-<!-- ======================================================= -->
-<!-- 2. Work Progress History (Dates)                       -->
-<!-- ======================================================= -->
-<div class="card">
-    <h3 class="section-title">2. Work Progress History (Dates)</h3>
-    <div class="white-box table-wrap">
-        <table>
-            <thead>
-                <tr>
-                    <th style="width: 15%;">Date</th>
-                    <th style="width: 25%;">Material Name</th>
-                    <th style="width: 12%;">Supply Qty</th>
-                    <th style="width: 12%;">Erection Qty</th>
-                    <th style="width: 18%;">Remarks</th>
-                    <th class="no-print" style="width: 18%; text-align: center;">Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for h in work_history %}
-                <tr>
-                    <td><strong>{{ h['work_date'] | dateformat }}</strong></td>
-                    <td>{{ h['material_name'] }}</td>
-                    <td style="color: #176b38; font-weight: bold;">{{ h['qty_supply'] }}</td>
-                    <td style="color: #0d47a1; font-weight: bold;">{{ h['qty_erection'] }}</td>
-                    <td>{{ h['remarks'] or '-' }}</td>
-                    
-                    <td class="no-print" style="text-align: center;">
-                        {% if h['is_billed_supply'] == 1 or h['is_billed_erection'] == 1 %}
-                            <span style="background: #eee; color: #666; padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: bold;">🔒 Billed</span>
-                        {% else %}
-                            <a href="{{ url_for('edit_work_progress', id=h['id']) }}" class="btn-action btn-edit">✏️ Modify</a>
-                            <a href="{{ url_for('delete_work_progress', id=h['id'], project=selected_project) }}" class="btn-action btn-del">❌ Del</a>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% else %}
-                <tr><td colspan="6" style="text-align: center; padding: 20px;">No work updates found.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<!-- ================= TAB 2: WORK PROGRESS HISTORY ================= -->
+<div id="tab2" class="tab-content">
+    <div class="card">
+        <h3 class="section-title">2. Work Progress History (Dates)</h3>
+        <div class="white-box">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 15%;">Date</th>
+                        <th style="width: 30%;">Material Name</th>
+                        <th style="width: 12%;">Sup Qty</th>
+                        <th style="width: 12%;">Ere Qty</th>
+                        <th style="width: 15%;">Remarks</th>
+                        <th class="no-print" style="width: 16%; text-align: center;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for h in work_history %}
+                    <tr>
+                        <td><strong>{{ h['work_date'] | dateformat }}</strong></td>
+                        <td>{{ h['material_name'] }}</td>
+                        <td style="color: #176b38; font-weight: bold;">{{ h['qty_supply'] }}</td>
+                        <td style="color: #0d47a1; font-weight: bold;">{{ h['qty_erection'] }}</td>
+                        <td>{{ h['remarks'] or '-' }}</td>
+                        
+                        <td class="no-print" style="text-align: center; white-space: nowrap;">
+                            {% if h['is_billed_supply'] == 1 or h['is_billed_erection'] == 1 %}
+                                <span style="background: #eee; color: #666; padding: 6px 10px; border-radius: 4px; font-size: 12px; font-weight: bold;">🔒 Billed</span>
+                            {% else %}
+                                <a href="{{ url_for('edit_work_progress', id=h['id']) }}" class="btn-action btn-edit">✏️ Modify</a>
+                                <a href="{{ url_for('delete_work_progress', id=h['id'], project=selected_project) }}" class="btn-action btn-del">❌ Del</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="6" style="text-align: center; padding: 20px;">No work updates found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
@@ -145,6 +157,15 @@
 
 {% block scripts %}
 <script>
+    // Tab Switching Logic
+    function openTab(tabName, evt) {
+        document.querySelectorAll(".tab-content").forEach(t => t.classList.remove("active"));
+        document.querySelectorAll(".tab-btn").forEach(t => t.classList.remove("active"));
+        document.getElementById(tabName).classList.add("active");
+        evt.currentTarget.classList.add("active");
+    }
+
+    // Default Date
     document.addEventListener("DOMContentLoaded", function() {
         const today = new Date().toISOString().split('T')[0];
         document.querySelectorAll('.work-date-input').forEach(input => {

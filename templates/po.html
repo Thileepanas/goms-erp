@@ -105,7 +105,7 @@
                     <td style="color: #0d47a1; font-weight: bold;">₹ {{ p['total'] | inr }}</td>
                     <td class="no-print">
                         <div style="display: flex; gap: 5px;">
-                            <a href="{{ url_for('edit_po', id=p['id']) }}" class="btn" style="padding: 6px 10px; font-size: 12px; background: #ff9800;">✏️ Modify</a>
+                            <a href="{{ url_for('edit_po', id=p['id']) }}" class="btn" style="padding: 6px 10px; font-size: 12px; background: #ff9800; color: black;">✏️ Modify</a>
                             <a href="{{ url_for('print_po', id=p['id']) }}" target="_blank" class="btn" style="padding: 6px 10px; font-size: 12px; background: #0a2240;">🖨️ Print</a>
                         </div>
                     </td>
@@ -121,7 +121,7 @@
 
 {% block scripts %}
 <script>
-    // FIX: Use tojson for safe JS object mapping
+    // FIX: Use tojson for safe JS object mapping (Prevents errors if material has quotes)
     const materialUnits = {
         {% for m in materials %}
             {{ m['material_name'] | tojson }}: {{ m['unit'] | tojson }},

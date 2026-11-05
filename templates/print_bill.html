@@ -10,38 +10,43 @@
         .header img { max-height: 70px; margin-right: 20px; }
         .header-text h1 { margin: 0; color: #0a2240; font-size: 28px; font-weight: 800; }
         .header-text p { margin: 5px 0 0 0; font-size: 12px; font-weight: 600; color: #333; }
-        
+
         .title { text-align: center; margin-bottom: 20px; }
         .title h2 { display: inline-block; background: #0a2240; color: white; padding: 8px 40px; border-radius: 5px; margin: 0; font-size: 20px; letter-spacing: 2px; border-bottom: 4px solid #e31e24; }
-        
+
         .top-info { display: flex; justify-content: space-between; margin-bottom: 20px; }
         .top-info div p { margin: 5px 0; }
         .top-info div span { font-weight: 700; color: #0a2240; }
-        
+
         .address-section { display: flex; gap: 20px; margin-bottom: 20px; }
         .box { flex: 1; border: 2px solid #0a2240; border-radius: 8px; overflow: hidden; }
         .box-header { background: #0a2240; color: white; padding: 8px 15px; font-weight: 700; }
         .box-body { padding: 15px; line-height: 1.6; }
-        
+
         table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
         th, td { border: 1px solid #333; padding: 8px; text-align: left; }
-        th { background: #0a2240; color: white; font-weight: 700; text-align: center; font-size: 11px;}
+        th { background: #0a2240; color: white; font-weight: 700; text-align: center; font-size: 11px; }
         td.amt { text-align: right; }
         td.center { text-align: center; }
-        
+
         .totals { width: 55%; margin-left: auto; border: 1px solid #333; }
         .totals table { margin: 0; }
         .totals td { border: 1px solid #333; padding: 6px 10px; font-weight: 700; }
         .totals .grand-total { background: #0a2240; color: white; font-size: 14px; border-top: 3px solid #e31e24; }
-        
+
         .signatures { display: flex; justify-content: space-between; margin-top: 50px; border-top: 2px solid #0a2240; padding-top: 20px; }
         .sig-box { text-align: center; width: 45%; }
         .sig-box .label { background: #0a2240; color: white; display: inline-block; padding: 5px 20px; border-radius: 5px; font-weight: 700; margin-bottom: 30px; }
-        
+
         @media print {
             body { background: white; padding: 0; }
             .container { box-shadow: none; padding: 0; max-width: 100%; border-top: none; border-bottom: none; }
             .no-print { display: none !important; }
+            /* FIX: Firefox + Edge support for background colors */
+            th, .totals .grand-total, .box-header, .title h2, .sig-box .label {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
         }
     </style>
 </head>
@@ -51,7 +56,7 @@
         <button onclick="window.print()" style="padding: 10px 20px; background: #176b38; color: white; border: none; font-weight: bold; border-radius: 5px; cursor: pointer; font-size: 16px;">🖨️ Print / Save as PDF</button>
     </div>
 
-    <!-- SMART LOGIC: Namespace-ஐ யூஸ் பண்ணி டோட்டல் கணக்கிடுறோம் -->
+    {# SMART LOGIC: namespace for running totals #}
     {% set ns = namespace(sub_total=0.0, total_gst=0.0, is_combined=false) %}
     {% for item in items %}
         {% set ns.sub_total = ns.sub_total + (item['basic_amount'] or 0) %}
@@ -61,18 +66,21 @@
         {% endif %}
     {% endfor %}
 
-    <!-- கிளையண்ட் GSTIN '33' (தமிழ்நாடு) இல்லைனா IGST வரும் -->
+    {# If client GSTIN is missing or doesn't start with 33 → treat as inter-state (IGST) #}
     {% set is_intra_state = True %}
     {% if client and client['gstin'] and not client['gstin'].startswith('33') %}
         {% set is_intra_state = False %}
     {% endif %}
+
+    {# FIX: dynamic colspan based on combined or not #}
+    {% set total_cols = 9 if ns.is_combined else 8 %}
 
     <div class="container">
         <div class="header">
             <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo">
             <div class="header-text">
                 <h1>GOMS ELECTRICALS PVT LTD</h1>
-                <p>#43, RK Nagar First Main Road,Mandaveli, Chennai Dist – 600028</p>
+                <p>#43, RK Nagar First Main Road, Mandaveli, Chennai Dist – 600028</p>
                 <p>GSTIN: 33AAACG3020F1ZF</p>
             </div>
         </div>
@@ -95,13 +103,14 @@
             <div class="box">
                 <div class="box-header">Bill To (Client)</div>
                 <div class="box-body">
-                    <p><strong>{{ project['client_name'] if project else 'N/A' }}</strong></p>
-                    <p><strong>Address :</strong> {{ client['address'] if client else 'N/A' }}</p>
-                    <p><strong>GSTIN :</strong> {{ client['gstin'] if client else 'N/A' }}</p>
-                    <p><strong>Contact :</strong> {{ client['contact_number'] if client else 'N/A' }}</p>
+                    {# FIX: handle None/null gracefully instead of showing "None" #}
+                    <p><strong>{{ (project['client_name'] if project else '') or 'N/A' }}</strong></p>
+                    <p><strong>Address :</strong> {{ (client['address'] if client else '') or 'N/A' }}</p>
+                    <p><strong>GSTIN :</strong> {{ (client['gstin'] if client else '') or 'N/A' }}</p>
+                    <p><strong>Contact :</strong> {{ (client['contact_number'] if client else '') or 'N/A' }}</p>
                 </div>
             </div>
-            
+
             <div class="box">
                 <div class="box-header">Site / Delivery Address</div>
                 <div class="box-body" style="min-height: 80px;">
@@ -118,14 +127,14 @@
                     <th style="width: 28%;">Description</th>
                     <th style="width: 9%;">HSN/SAC</th>
                     <th style="width: 7%;">Qty</th>
-                    
+
                     {% if ns.is_combined %}
                         <th style="width: 10%;">Supply Rate</th>
                         <th style="width: 10%;">Erection Rate</th>
                     {% else %}
                         <th style="width: 15%;">Rate</th>
                     {% endif %}
-                    
+
                     <th style="width: 8%;">GST %</th>
                     <th style="width: 11%;">Basic (₹)</th>
                     <th style="width: 12%;">Total (₹)</th>
@@ -138,20 +147,23 @@
                     <td>{{ item['description'] }}</td>
                     <td class="center">{{ item['hsn_sac'] or '-' }}</td>
                     <td class="center">{{ item['quantity'] }}</td>
-                    
+
                     {% if ns.is_combined %}
                         <td class="amt">{{ (item['supply_rate'] or 0) | inr }}</td>
                         <td class="amt">{{ (item['erection_rate'] or 0) | inr }}</td>
                     {% else %}
                         <td class="amt">{{ item['rate'] | inr }}</td>
                     {% endif %}
-                    
+
                     <td class="center">{{ item['gst_rate'] }}%</td>
                     <td class="amt">{{ item['basic_amount'] | inr }}</td>
                     <td class="amt">{{ item['total_amount'] | inr }}</td>
                 </tr>
                 {% else %}
-                <tr><td colspan="9" class="center">No items in this bill.</td></tr>
+                {# FIX: dynamic colspan — 8 or 9 depending on layout #}
+                <tr>
+                    <td colspan="{{ total_cols }}" class="center">No items in this bill.</td>
+                </tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -162,7 +174,7 @@
                     <td style="text-align: right;">Taxable Value</td>
                     <td class="amt">{{ ns.sub_total | inr }}</td>
                 </tr>
-                
+
                 {% if is_intra_state %}
                 <tr>
                     <td style="text-align: right;">CGST</td>
@@ -178,10 +190,15 @@
                     <td class="amt">{{ ns.total_gst | inr }}</td>
                 </tr>
                 {% endif %}
+
+                {# FIX: hide round-off row if it's exactly 0 #}
+                {% if round_off and round_off != 0 %}
                 <tr>
                     <td style="text-align: right;">Round Off</td>
                     <td class="amt">{{ round_off | inr }}</td>
                 </tr>
+                {% endif %}
+
                 <tr class="grand-total">
                     <td style="text-align: right;">Grand Total</td>
                     <td class="amt">₹ {{ rounded_total | inr }}</td>

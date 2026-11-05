@@ -63,6 +63,12 @@
             body { background: white; padding: 0; }
             .container { box-shadow: none; padding: 0; max-width: 100%; border-top: none; border-bottom: none; }
             .no-print { display: none !important; }
+            
+            /* FIX: Ensure colors print properly */
+            th, .box-header, .title h2, .sig-box .label, .totals .grand-total, .terms h3 {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
         }
     </style>
 </head>
@@ -76,9 +82,8 @@
         <div class="header">
             <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo">
             <div class="header-text">
-                <h1>GOMS ELECTRICALS PVT LTD</h1>
-                <p>#43, RK Nagar First Main Road,Mandaveli, Chennai Dist – 600028</p>
-                <p>GSTIN: 33AAACG3020F1ZF</p>
+                <h1>GOMS POWER FAB PVT LTD</h1>
+                <p>#112, Singadivakkam & Post, Enathur (via), Kanchipuram Dist – 631561</p>
             </div>
         </div>
 
@@ -102,9 +107,10 @@
                 <div class="box-header">Supplier Details</div>
                 <div class="box-body">
                     <p><strong>Supplier Name :</strong> {{ po['vendor_name'] }}</p>
-                    <p><strong>Address :</strong> {{ vendor['address'] if vendor else 'N/A' }}</p>
-                    <p><strong>GSTIN :</strong> {{ vendor['gstin'] if vendor else 'N/A' }}</p>
-                    <p><strong>Contact Person :</strong> {{ vendor['contact_number'] if vendor else 'N/A' }}</p>
+                    <!-- FIX: Safe handling of None values -->
+                    <p><strong>Address :</strong> {{ (vendor['address'] if vendor else '') or 'N/A' }}</p>
+                    <p><strong>GSTIN :</strong> {{ (vendor['gstin'] if vendor else '') or 'N/A' }}</p>
+                    <p><strong>Contact Person :</strong> {{ (vendor['contact_number'] if vendor else '') or 'N/A' }}</p>
                 </div>
             </div>
             
@@ -138,8 +144,9 @@
                     <td>{{ item['material_name'] }}</td>
                     <td class="center">{{ item['hsn_code'] or '-' }}</td>
                     <td class="center">{{ item['quantity'] }} {{ item['unit'] or '' }}</td>
-                    <td class="amt">{{ "%.2f"|format(item['rate']) }}</td>
-                    <td class="amt">{{ "%.2f"|format(item['quantity'] * item['rate']) }}</td>
+                    <!-- FIX: inr filter -->
+                    <td class="amt">{{ (item['rate'] or 0) | inr }}</td>
+                    <td class="amt">{{ ((item['quantity'] or 0) * (item['rate'] or 0)) | inr }}</td>
                 </tr>
                 {% else %}
                 <tr><td colspan="6" class="center">No items in this PO.</td></tr>
@@ -147,35 +154,32 @@
             </tbody>
         </table>
 
-                <!-- Totals -->
         <div class="totals">
             <table>
                 <tr>
                     <td style="text-align: right;">Sub Total</td>
-                    <td class="amt">{{ "%.2f"|format(sub_total|default(0)) }}</td>
+                    <td class="amt">{{ (sub_total or 0) | inr }}</td>
                 </tr>
                 
                 {% if is_intra_state|default(true) %}
-                <!-- ஒரே மாநிலம்: CGST + SGST -->
                 <tr>
                     <td style="text-align: right;">CGST @ 9%</td>
-                    <td class="amt">{{ "%.2f"|format(cgst|default(0)) }}</td>
+                    <td class="amt">{{ (cgst or 0) | inr }}</td>
                 </tr>
                 <tr>
                     <td style="text-align: right;">SGST @ 9%</td>
-                    <td class="amt">{{ "%.2f"|format(sgst|default(0)) }}</td>
+                    <td class="amt">{{ (sgst or 0) | inr }}</td>
                 </tr>
                 {% else %}
-                <!-- வெவ்வேறு மாநிலம்: IGST -->
                 <tr>
                     <td style="text-align: right;">IGST @ 18%</td>
-                    <td class="amt">{{ "%.2f"|format(igst|default(0)) }}</td>
+                    <td class="amt">{{ (igst or 0) | inr }}</td>
                 </tr>
                 {% endif %}
                 
                 <tr class="grand-total">
                     <td style="text-align: right;">Grand Total</td>
-                    <td class="amt">₹ {{ "%.2f"|format(grand_total|default(0)) }}</td>
+                    <td class="amt">₹ {{ (grand_total or 0) | inr }}</td>
                 </tr>
             </table>
         </div>

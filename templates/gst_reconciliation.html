@@ -5,9 +5,9 @@
 {% block content %}
 <div class="card" style="background: #f9fbfc;">
     <h3>Upload GSTR-2B Excel File</h3>
-    <p style="color: #666; font-size: 14px; margin-bottom: 15px;">GST Excel GSTR-2B pls uplode .</p>
-    <form method="POST" enctype="multipart/form-data" style="display: flex; gap: 15px; align-items: center;">
-        <input type="file" name="file" accept=".xlsx, .xls, .csv" required style="padding: 10px; border: 1px solid #ccc; border-radius: 6px; background: white;">
+    <p style="color: #666; font-size: 14px; margin-bottom: 15px;">GST Excel GSTR-2B pls upload .</p>
+    <form method="POST" enctype="multipart/form-data" style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+        <input type="file" name="file" accept=".xlsx, .xls, .csv" required style="padding: 10px; border: 1px solid #ccc; border-radius: 6px; background: white; width: 100%; max-width: 350px;">
         <button type="submit" class="btn">Upload File</button>
         <a href="{{ url_for('run_reconciliation') }}" class="btn" style="background: #ff9800;">⚙️ Run Auto-Reconcile</a>
     </form>
@@ -21,7 +21,7 @@
                 <tr>
                     <th>Invoice No</th>
                     <th>Supplier</th>
-                    <th>2B Total (₹)</th>
+                    <th style="text-align: right;">2B Total (₹)</th>
                     <th>Match Status</th>
                     <th class="no-print">Action</th>
                 </tr>
@@ -31,7 +31,8 @@
                 <tr>
                     <td><strong>{{ row['invoice_number'] }}</strong></td>
                     <td>{{ row['supplier_name'] }}</td>
-                    <td>{{ "%.2f"|format(row['total_value']) }}</td>
+                    <!-- FIX: None-safe and inr filter -->
+                    <td style="text-align: right;">{{ (row['total_value'] or 0) | inr }}</td>
                     <td>
                         {% if 'Matched' in row['match_status'] %}
                             <span style="color: green; font-weight: bold;">{{ row['match_status'] }}</span>
@@ -44,7 +45,7 @@
                     </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="5" style="text-align: center;">No GSTR-2B data uploaded yet.</td></tr>
+                <tr><td colspan="5" style="text-align: center; padding: 20px;">No GSTR-2B data uploaded yet.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

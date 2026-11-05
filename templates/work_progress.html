@@ -72,7 +72,7 @@
     </div>
 </div>
 
-<!-- 2. Work Progress History (இங்க தான் நாம Edit / Delete பண்ணப் போறோம்) -->
+<!-- 2. Work Progress History -->
 <div class="card">
     <h3>Work Progress History (Dates)</h3>
     <div class="table-wrap">
@@ -84,36 +84,26 @@
                     <th>Supply Qty</th>
                     <th>Erection Qty</th>
                     <th>Remarks</th>
-                    <th class="no-print" style="text-align: center; width: 150px;">Action</th> <!-- புது காலம் -->
+                    <th class="no-print" style="text-align: center; width: 160px;">Action</th>
                 </tr>
             </thead>
             <tbody>
                 {% for h in work_history %}
                 <tr>
-                    <!-- FIX: Billed ஆகிட்டதா செக் பண்றோம் -->
-                    {% if h['is_billed_supply'] == 1 or h['is_billed_erection'] == 1 %}
-                        <td><strong>{{ h['work_date'] | dateformat }}</strong></td>
-                        <td>{{ h['material_name'] }}</td>
-                        <td style="color: #176b38;">{{ h['qty_supply'] }}</td>
-                        <td style="color: #0d47a1;">{{ h['qty_erection'] }}</td>
-                        <td>{{ h['remarks'] or '-' }}</td>
-                        <td class="no-print" style="text-align: center;">
-                            <span style="background: #f1f5f9; color: #666; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">🔒 Billed</span>
-                        </td>
-                    {% else %}
-                        <!-- Billed ஆகலைனா Edit / Delete ஆப்ஷன் தர்றோம் -->
-                        <form method="POST" action="{{ url_for('edit_work_progress', id=h['id'], project=selected_project) }}">
-                            <td><input type="date" name="work_date" value="{{ h['work_date'] }}" required style="width: 110px; padding: 4px; font-size: 12px; border: 1px solid #ccc; border-radius: 4px;"></td>
-                            <td>{{ h['material_name'] }}</td>
-                            <td><input type="number" name="qty_supply" value="{{ h['qty_supply'] }}" step="0.01" style="width: 70px; padding: 4px; font-size: 12px; border: 1px solid #ccc; border-radius: 4px;"></td>
-                            <td><input type="number" name="qty_erection" value="{{ h['qty_erection'] }}" step="0.01" style="width: 70px; padding: 4px; font-size: 12px; border: 1px solid #ccc; border-radius: 4px;"></td>
-                            <td><input type="text" name="remarks" value="{{ h['remarks'] or '' }}" style="width: 120px; padding: 4px; font-size: 12px; border: 1px solid #ccc; border-radius: 4px;"></td>
-                            <td class="no-print" style="text-align: center; white-space: nowrap;">
-                                <button type="submit" class="btn" style="padding: 4px 8px; font-size: 12px; background: #ffc107; color: black;">💾 Save</button>
-                                <a href="{{ url_for('delete_work_progress', id=h['id'], project=selected_project) }}" class="btn" style="padding: 4px 8px; font-size: 12px; background: #e31e24;">❌ Del</a>
-                            </td>
-                        </form>
-                    {% endif %}
+                    <td><strong>{{ h['work_date'] | dateformat }}</strong></td>
+                    <td>{{ h['material_name'] }}</td>
+                    <td style="color: #176b38;">{{ h['qty_supply'] }}</td>
+                    <td style="color: #0d47a1;">{{ h['qty_erection'] }}</td>
+                    <td>{{ h['remarks'] or '-' }}</td>
+                    
+                    <td class="no-print" style="text-align: center; white-space: nowrap;">
+                        {% if h['is_billed_supply'] == 1 or h['is_billed_erection'] == 1 %}
+                            <span style="background: #f1f5f9; color: #666; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;" title="Billed in RA Bill">🔒 Billed</span>
+                        {% else %}
+                            <a href="{{ url_for('edit_work_progress', id=h['id']) }}" class="btn" style="padding: 6px 10px; font-size: 12px; background: #ffc107; color: black;">✏️ Modify</a>
+                            <a href="{{ url_for('delete_work_progress', id=h['id'], project=selected_project) }}" class="btn" style="padding: 6px 10px; font-size: 12px; background: #e31e24;">❌ Del</a>
+                        {% endif %}
+                    </td>
                 </tr>
                 {% else %}
                 <tr><td colspan="6" style="text-align: center;">No work updates found.</td></tr>

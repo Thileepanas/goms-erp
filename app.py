@@ -716,6 +716,16 @@ def convert_tender(id):
 
     tender = conn.execute("SELECT * FROM tenders WHERE id = ?", (id,)).fetchone()
     if tender and tender['status'] == 'Won':
+        
+        # FIX: Check if the client exists in Party Master as a Debtor
+        client_exists = conn.execute("SELECT id FROM parties WHERE party_name = ? AND party_type = 'Debtor'", (tender['client_name'],)).fetchone()
+        
+        if not client_exists:
+            flash(f"Client '{tender['client_name']}' not found in Party Master. Please create the party first.", "error")
+            conn.close()
+            # Redirect to parties page and pre-fill the name
+            return redirect(url_for("parties", new_name=tender['client_name']))
+
         existing = conn.execute("SELECT id FROM projects WHERE project_name = ?", (tender['tender_no'],)).fetchone()
         if not existing:
             conn.execute("INSERT INTO projects (project_name, client_name, project_value, status) VALUES (?, ?, ?, 'In Progress')",

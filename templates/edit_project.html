@@ -12,7 +12,7 @@
                 <label>Project Name *</label>
                 <input type="text" name="project_name" value="{{ project['project_name'] }}" required>
             </div>
-                        <div>
+            <div>
                 <label>Client Name *</label>
                 <select name="client_name" required>
                     <option value="">-- Select Client --</option>
@@ -27,7 +27,8 @@
             </div>
             <div>
                 <label>Project Value (₹)</label>
-                <input type="number" name="project_value" step="0.01" value="{{ project['project_value'] }}">
+                <!-- FIX: None-safe fallback -->
+                <input type="number" name="project_value" step="0.01" value="{{ project['project_value'] or 0 }}">
             </div>
             <div>
                 <label>Start Date</label>

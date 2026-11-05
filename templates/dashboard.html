@@ -4,6 +4,8 @@
 {% block page_title %}GOMS Dashboard{% endblock %}
 
 {% block content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <style>
     .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 30px; }
     .stat-card { background: white; padding: 20px 15px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-left: 5px solid var(--primary-blue); display: flex; flex-direction: column; justify-content: center; min-height: 110px; }
@@ -13,10 +15,19 @@
     .stat-card.green { border-left-color: #176b38; }
     .stat-card.red { border-left-color: var(--accent-red); }
     .stat-card.orange { border-left-color: #ff9800; }
+    
     .welcome-banner { background: linear-gradient(135deg, var(--primary-blue), #123a66); color: white; padding: 25px 30px; border-radius: 8px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
     .welcome-banner h1 { margin-bottom: 8px; font-size: 24px; }
     .welcome-banner p { color: rgba(255,255,255,0.8); font-size: 14px; }
-    @media (max-width: 1024px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+    
+    .dashboard-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+    .alert-box { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .alert-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #eee; }
+    .alert-item:last-child { border-bottom: none; }
+    .alert-badge { background: #e31e24; color: white; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+    .alert-badge.warning { background: #ff9800; }
+    
+    @media (max-width: 1024px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } .dashboard-layout { grid-template-columns: 1fr; } }
     @media (max-width: 600px) { .stats-grid { grid-template-columns: 1fr; } }
 </style>
 
@@ -35,15 +46,124 @@
     </div>
     <div class="stat-card green">
         <h4>Project Value</h4>
-        <h2>₹ {{ "%.2f"|format(total_project_value or 0) }}</h2>
+        <h2>₹ {{ total_project_value | inr }}</h2>
     </div>
     <div class="stat-card red">
-        <h4>Total Sales</h4>
-        <h2>₹ {{ "%.2f"|format(total_sales or 0) }}</h2>
+        <h4>Total Sales (Billed)</h4>
+        <h2>₹ {{ total_sales | inr }}</h2>
     </div>
     <div class="stat-card orange">
         <h4>Active Workers</h4>
         <h2>{{ total_labour or '0' }}</h2>
     </div>
 </div>
+
+<div class="dashboard-layout">
+    <!-- 1. Profit & Loss Chart -->
+    <div class="alert-box">
+        <h3 style="color: var(--primary-blue); border-bottom: 2px solid var(--accent-red); padding-bottom: 5px; display: inline-block; margin-bottom: 15px;">Financial Overview</h3>
+        <div style="position: relative; height:250px; width:100%; display: flex; justify-content: center;">
+            <canvas id="incomeExpenseChart"></canvas>
+        </div>
+    </div>
+
+    <!-- 2. Alerts & Quick Actions -->
+    <div class="alert-box">
+        <h3 style="color: var(--primary-blue); border-bottom: 2px solid var(--accent-red); padding-bottom: 5px; display: inline-block; margin-bottom: 15px;">Quick Alerts</h3>
+        
+        <div class="alert-item">
+            <div>
+                <strong style="display: block; font-size: 15px;">MD Approvals Pending</strong>
+                <span style="font-size: 12px; color: #666;">Purchase bills waiting for MD approval</span>
+            </div>
+            <div class="alert-badge warning" style="{% if pending_approvals == 0 %}background: #176b38;{% endif %}">
+                {{ pending_approvals }} Bills
+            </div>
+        </div>
+        
+        <div class="alert-item">
+            <div>
+                <strong style="display: block; font-size: 15px;">GM Approvals Pending (PO)</strong>
+                <span style="font-size: 12px; color: #666;">Purchase Orders waiting for GM approval</span>
+            </div>
+            <div class="alert-badge" style="background: #0d47a1; {% if pending_gm_approvals == 0 %}background: #176b38;{% endif %}">
+                {{ pending_gm_approvals }} POs
+            </div>
+        </div>
+
+        <div class="alert-item">
+            <div>
+                <strong style="display: block; font-size: 15px;">Low Stock Items</strong>
+                <span style="font-size: 12px; color: #666;">Materials that need to be reordered</span>
+            </div>
+            <div class="alert-badge" style="{% if low_stock_count == 0 %}background: #176b38;{% endif %}">
+                {{ low_stock_count }} Items
+            </div>
+        </div>
+        
+        <div style="margin-top: 15px; display: flex; gap: 10px;">
+            <a href="{{ url_for('accounts_entry') }}" class="btn" style="flex: 1; text-align: center; background: #176b38;">+ New Bill</a>
+            <a href="{{ url_for('purchases') }}" class="btn" style="flex: 1; text-align: center;">+ Purchase</a>
+        </div>
+    </div>
+</div>
+
+<!-- 3. Recent Transactions -->
+<div class="alert-box">
+    <h3 style="color: var(--primary-blue); border-bottom: 2px solid var(--accent-red); padding-bottom: 5px; display: inline-block; margin-bottom: 15px;">Recent Sales Bills</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Bill No</th>
+                    <th>Date</th>
+                    <th>Project</th>
+                    <th>Total Value (₹)</th>
+                    <th class="no-print" style="text-align: center;">Action</th>
+                </tr>
+            </thead>
+            <tbody> 
+                {% for b in recent_bills %}
+                <tr>
+                    <td><strong>{{ b['bill_no'] }}</strong></td>
+                    <td>{{ b['bill_date'] | dateformat }}</td>
+                    <td>{{ b['project_name'] }}</td>
+                    <td style="font-weight: bold; color: #0d47a1;">₹ {{ b['total_value'] | round | inr }}</td>
+                    <td class="no-print" style="text-align: center;">
+                        <a href="{{ url_for('print_bill', id=b['id']) }}" target="_blank" class="btn" style="padding: 4px 8px; font-size: 12px; background: #0a2240;">🖨️ Print</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" style="text-align: center;">No bills generated yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const ctx = document.getElementById('incomeExpenseChart').getContext('2d');
+    const incomeExpenseChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Total Income', 'Total Expense'],
+            datasets: [{
+                data: [{{ total_income }}, {{ total_expense }}],
+                backgroundColor: ['#176b38', '#e31e24'],
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { font: { size: 14, family: 'Segoe UI' } } }
+            }
+        }
+    });
+</script>
 {% endblock %}

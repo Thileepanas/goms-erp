@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Project P&L Detail{% endblock %}
+{% block page_title %}P&L Statement - {{ project['project_name'] }}{% endblock %}
+
+{% block content %}
+<style>
+    .summary-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 25px; }
+    .summary-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); text-align: center; border-top: 4px solid #ccc; }
+    .summary-card h4 { color: #666; font-size: 13px; margin-bottom: 10px; text-transform: uppercase; font-weight: bold; }
+    .summary-card h2 { font-size: 24px; margin: 0; font-weight: 800; }
+    
+    .card-income { border-top-color: #176b38; }
+    .card-income h2 { color: #176b38; }
+    
+    .card-expense { border-top-color: #e31e24; }
+    .card-expense h2 { color: #e31e24; }
+    
+    .card-profit { border-top-color: #0d47a1; }
+    .card-profit h2 { color: #0d47a1; }
+
+    @media (max-width: 768px) { .summary-cards { grid-template-columns: 1fr; } }
+</style>
+
+<!-- Back Button -->
+<div style="margin-bottom: 15px;">
+    <a href="{{ url_for('accounts') }}" class="btn" style="background: #6c757d; padding: 8px 15px;">⬅️ Back to P&L Overview</a>
+</div>
+
+<!-- Summary Cards -->
+<div class="summary-cards">
+    <div class="summary-card card-income">
+        <h4>Total Cash Inflow</h4>
+        <h2>₹ {{ total_inflow | inr }}</h2>
+    </div>
+    <div class="summary-card card-expense">
+        <h4>Total Cash Outflow</h4>
+        <h2>₹ {{ total_outflow | inr }}</h2>
+    </div>
+    <div class="summary-card card-profit">
+        <h4>Net Profit / Loss</h4>
+        <h2 style="color: {% if net_profit >= 0 %}#176b38{% else %}#e31e24{% endif %};">
+            ₹ {{ net_profit | inr }}
+        </h2>
+    </div>
+</div>
+
+<!-- Detailed Transactions Table -->
+<div class="card">
+    <h3 style="color: var(--primary-blue); border-bottom: 2px solid var(--accent-red); display: inline-block; padding-bottom: 5px; margin-bottom: 20px;">Cash Flow Statement</h3>
+    
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr style="background: #f1f5f9;">
+                    <th>Date</th>
+                    <th>Particulars</th>
+                    <th>Category</th>
+                    <th>Paid To / From</th>
+                    <th style="color: #176b38; text-align: right;">Inflow (+)</th>
+                    <th style="color: #e31e24; text-align: right;">Outflow (-)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in transactions %}
+                <tr>
+                    <td>{{ t['transaction_date'] | dateformat }}</td>
+                    <td><strong>{{ t['description'] }}</strong></td>
+                    <td>{{ t['category'] or '-' }}</td>
+                    <td>{{ t['paid_name'] or '-' }}</td>
+                    
+                    <td style="text-align: right; color: #176b38; font-weight: bold;">
+                        {% if t['transaction_type'] == 'Income' %}
+                            ₹ {{ t['amount'] | inr }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    
+                    <td style="text-align: right; color: #e31e24; font-weight: bold;">
+                        {% if t['transaction_type'] == 'Expense' %}
+                            ₹ {{ t['amount'] | inr }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" style="text-align: center; padding: 20px;">No transactions found for this project.</td></tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr style="background: #f9fbfc; font-weight: bold;">
+                    <td colspan="4" style="text-align: right;">Total:</td>
+                    <td style="text-align: right; color: #176b38;">₹ {{ total_inflow | inr }}</td>
+                    <td style="text-align: right; color: #e31e24;">₹ {{ total_outflow | inr }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+{% endblock %}

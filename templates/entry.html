@@ -50,33 +50,16 @@
     .action-btns { display: flex; gap: 5px; justify-content: center; align-items: center; white-space: nowrap; }
 
     /* Date Filter Box */
-    .date-filter-box { 
-        display: flex; 
-        gap: 10px; 
-        margin-bottom: 15px; 
-        align-items: center; 
-        background: #eef2f5; 
-        padding: 10px; 
-        border-radius: 6px; 
-        flex-wrap: nowrap; /* ஒரே லைன்ல இருக்க */
-        overflow-x: auto; /* சின்ன ஸ்கிரீனா ஸ்க்ரோல் ஆக */
-    }
-    .date-filter-box label { 
-        font-weight: bold; 
-        margin: 0; 
-        white-space: nowrap; 
-    }
-    .date-filter-box input[type="date"] { 
-        width: 140px; /* சின்னதா இருக்க */
-        padding: 6px 10px; 
-        border: 1px solid #ccc; 
-        border-radius: 4px; 
-        box-sizing: border-box;
-    }
-    .date-filter-box button {
-        padding: 6px 15px; 
-        white-space: nowrap;
-    }
+    .date-filter-box { display: flex; gap: 10px; margin-bottom: 15px; align-items: center; background: #eef2f5; padding: 10px; border-radius: 6px; flex-wrap: nowrap; overflow-x: auto; }
+    .date-filter-box label { font-weight: bold; margin: 0; white-space: nowrap; }
+    .date-filter-box input[type="date"] { width: 140px; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+    .date-filter-box button { padding: 6px 15px; white-space: nowrap; }
+
+    /* Bill Summary Box Style */
+    .bill-summary { width: 40%; margin-left: auto; border: 1px solid #ccc; border-radius: 6px; background: white; overflow: hidden; }
+    .bill-summary table { margin: 0; width: 100%; border-collapse: collapse; }
+    .bill-summary th, .bill-summary td { padding: 8px 15px; font-size: 14px; border-bottom: 1px solid #eee; text-align: right; }
+    .bill-summary .summary-grand { background: #0a2240; color: white; font-size: 16px; font-weight: bold; border-bottom: none; }
 </style>
 
 <!-- Project Selector -->
@@ -94,16 +77,16 @@
 
 {% if selected_project and project_details %}
 
-<!-- 4 TABS NAVIGATION -->
+<!-- 4 TABS NAVIGATION (Dynamic Active State) -->
 <div class="tabs no-print">
-    <button type="button" class="tab-btn {% if not edit_account_data %}active{% endif %}" onclick="openTab('tab1', event)">1. Sales Bill Entry</button>
-    <button type="button" class="tab-btn {% if edit_account_data %}active{% endif %}" onclick="openTab('tab2', event)">2. Payment / Expense Entry</button>
-    <button type="button" class="tab-btn" onclick="openTab('tab3', event)">3. Sales Bill Details</button>
-    <button type="button" class="tab-btn" onclick="openTab('tab4', event)">4. Payment / EXP Details</button>
+    <button type="button" class="tab-btn {% if active_tab == 'tab1' or (not active_tab and not edit_account_data) %}active{% endif %}" onclick="openTab('tab1', event)">1. Sales Bill Entry</button>
+    <button type="button" class="tab-btn {% if active_tab == 'tab2' or edit_account_data %}active{% endif %}" onclick="openTab('tab2', event)">2. Payment / Expense Entry</button>
+    <button type="button" class="tab-btn {% if active_tab == 'tab3' %}active{% endif %}" onclick="openTab('tab3', event)">3. Sales Bill Details</button>
+    <button type="button" class="tab-btn {% if active_tab == 'tab4' %}active{% endif %}" onclick="openTab('tab4', event)">4. Payment / EXP Details</button>
 </div>
 
 <!-- ================= 1. SALES BILL ENTRY FORM ================= -->
-<div id="tab1" class="tab-content {% if not edit_account_data %}active{% endif %}">
+<div id="tab1" class="tab-content {% if active_tab == 'tab1' or (not active_tab and not edit_account_data) %}active{% endif %}">
     <div class="card">
         <h3 class="section-title">{% if edit_bill_data %}Modify Sales Bill ({{ edit_bill_data.bill_no }}){% else %}Add New Sales Bill{% endif %}</h3>
         <form method="POST" id="billForm">
@@ -136,6 +119,7 @@
                 </div>
             </div>
 
+            <!-- Table Section -->
             <div class="white-box table-wrap">
                 <table class="table" id="billItemsTable" style="margin: 0; width: 100%; min-width: 900px; table-layout: fixed;">
                     <thead>
@@ -154,10 +138,30 @@
                 </table>
             </div>
             
-            <div style="display: flex; justify-content: flex-end; align-items: center; margin-top: 15px;">
-                <div style="font-size: 20px; font-weight: bold; color: #0d47a1;">
-                    Grand Total: ₹ <span id="grandTotalDisplay">0.00</span>
-                </div>
+            <!-- Bill Summary Box -->
+            <div class="bill-summary" style="margin-top: 15px;">
+                <table>
+                    <tr>
+                        <th>Taxable Value</th>
+                        <td>₹ <span id="summary_basic">0.00</span></td>
+                    </tr>
+                    <tr>
+                        <th>CGST</th>
+                        <td>₹ <span id="summary_cgst">0.00</span></td>
+                    </tr>
+                    <tr>
+                        <th>SGST</th>
+                        <td>₹ <span id="summary_sgst">0.00</span></td>
+                    </tr>
+                    <tr>
+                        <th>Round Off</th>
+                        <td>₹ <span id="summary_roundoff">0.00</span></td>
+                    </tr>
+                    <tr class="summary-grand">
+                        <th style="color: white;">Grand Total</th>
+                        <td>₹ <span id="summary_grand_total">0.00</span></td>
+                    </tr>
+                </table>
             </div>
 
             <!-- Action Buttons Group -->
@@ -165,7 +169,7 @@
                 <button type="submit" class="btn-save" style="flex: 2;">{% if edit_bill_data %}Update Bill Entry{% else %}Save Bill Entry{% endif %}</button>
                 
                 {% if edit_bill_data %}
-                    <a href="{{ url_for('accounts_entry', project=selected_project) }}" style="flex: 1; background: #e31e24; color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 16px; cursor: pointer; text-align: center; padding: 12px; text-decoration: none; box-sizing: border-box;">❌ Cancel</a>
+                    <a href="{{ url_for('accounts_entry', project=selected_project, tab='tab1') }}" style="flex: 1; background: #e31e24; color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 16px; cursor: pointer; text-align: center; padding: 12px; text-decoration: none; box-sizing: border-box;">❌ Cancel</a>
                     <a href="{{ url_for('print_bill', id=edit_bill_data.id) }}" target="_blank" style="flex: 1; background: #176b38; color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 16px; cursor: pointer; text-align: center; padding: 12px; text-decoration: none; box-sizing: border-box;">🖨️ Print</a>
                 {% else %}
                     <button type="button" onclick="alert('Please save the bill first to generate a printable invoice.');" style="flex: 1; background: #176b38; color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 16px; cursor: pointer;">🖨️ Print</button>
@@ -176,7 +180,7 @@
 </div>
 
 <!-- ================= 2. PAYMENT / EXPENSE ENTRY FORM ================= -->
-<div id="tab2" class="tab-content {% if edit_account_data %}active{% endif %}">
+<div id="tab2" class="tab-content {% if active_tab == 'tab2' or edit_account_data %}active{% endif %}">
     <div class="card">
         <h3 class="section-title">{% if edit_account_data %}Modify Payment Entry{% else %}Add New Payment / Expense Entry{% endif %}</h3>
         <form method="POST">
@@ -215,8 +219,8 @@
                         <input type="text" name="description" value="{{ edit_account_data.description if edit_account_data else '' }}" required placeholder="e.g. Payment Received">
                     </div>
                     <div style="grid-column: span 3;">
-                        <label>Paid Name</label>
-                        <input type="text" name="paid_name" value="{{ edit_account_data.paid_name if edit_account_data else '' }}" list="party_list" placeholder="Select or Type Name">
+                        <label>Paid Name / Expense Type</label>
+                        <input type="text" name="paid_name" value="{{ edit_account_data.paid_name if edit_account_data else '' }}" list="party_list" placeholder="Select Party OR Other Expense">
                         <datalist id="party_list">
                             {% for p in parties_list %}
                                 <option value="{{ p['party_name'] }}">
@@ -231,7 +235,7 @@
                 <button type="submit" class="btn-save" style="flex: 1; background: #176b38;">{% if edit_account_data %}Update Payment Entry{% else %}Save Payment Entry{% endif %}</button>
                 
                 {% if edit_account_data %}
-                    <a href="{{ url_for('accounts_entry', project=selected_project) }}" style="flex: 1; background: #e31e24; color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 16px; cursor: pointer; text-align: center; padding: 12px; text-decoration: none; box-sizing: border-box;">❌ Cancel Edit</a>
+                    <a href="{{ url_for('accounts_entry', project=selected_project, tab='tab2') }}" style="flex: 1; background: #e31e24; color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 16px; cursor: pointer; text-align: center; padding: 12px; text-decoration: none; box-sizing: border-box;">❌ Cancel Edit</a>
                 {% endif %}
             </div>
         </form>
@@ -239,7 +243,7 @@
 </div>
 
 <!-- ================= 3. SALES BILL DETAILS (LIST) ================= -->
-<div id="tab3" class="tab-content">
+<div id="tab3" class="tab-content {% if active_tab == 'tab3' %}active{% endif %}">
     <div class="card">
         <h3 class="section-title">Sales Bill History</h3>
         
@@ -271,7 +275,7 @@
                         <td style="font-weight: bold; color: #0d47a1;">{{ b['total_value'] | inr }}</td>
                         <td class="no-print">
                             <div class="action-btns">
-                                <a href="{{ url_for('accounts_entry', project=selected_project, edit_bill=b['id']) }}" class="btn-add-row" style="padding: 6px 10px; font-size: 12px; background: #ffc107; color: black;">✏️ Modify</a>
+                                <a href="{{ url_for('accounts_entry', project=selected_project, edit_bill=b['id'], tab='tab1') }}" class="btn-add-row" style="padding: 6px 10px; font-size: 12px; background: #ffc107; color: black;">✏️ Modify</a>
                                 <a href="{{ url_for('print_bill', id=b['id']) }}" target="_blank" class="btn-add-row" style="padding: 6px 10px; font-size: 12px; background: #0a2240;">🖨️ Print</a>
                                 <a href="{{ url_for('delete_bill', id=b['id'], project=selected_project) }}" class="btn-remove" style="padding: 6px 10px; font-size: 12px;" onclick="return confirm('Delete this bill?');">❌</a>
                             </div>
@@ -293,11 +297,11 @@
 </div>
 
 <!-- ================= 4. PAYMENT / EXP DETAILS (LIST) ================= -->
-<div id="tab4" class="tab-content">
+<div id="tab4" class="tab-content {% if active_tab == 'tab4' %}active{% endif %}">
     <div class="card">
         <h3 class="section-title">Payment / Expense History</h3>
         
-                <!-- Date Filter for Payments -->
+        <!-- Date Filter for Payments -->
         <div class="date-filter-box">
             <label>From:</label>
             <input type="date" id="exp_from_date">
@@ -334,7 +338,7 @@
                         </td>
                         <td class="no-print">
                             <div class="action-btns">
-                                <a href="{{ url_for('accounts_entry', project=selected_project, edit_account=a['id']) }}" class="btn-add-row" style="padding: 6px 10px; font-size: 12px; background: #ffc107; color: black;">✏️ Modify</a>
+                                <a href="{{ url_for('accounts_entry', project=selected_project, edit_account=a['id'], tab='tab2') }}" class="btn-add-row" style="padding: 6px 10px; font-size: 12px; background: #ffc107; color: black;">✏️ Modify</a>
                                 <a href="{{ url_for('delete_account_entry', id=a['id'], project=selected_project) }}" class="btn-remove" style="padding: 6px 10px; font-size: 12px;" onclick="return confirm('Delete this entry?');">❌</a>
                             </div>
                         </td>
@@ -424,8 +428,18 @@
                     lastRow.querySelector("input[name='description[]']").value = item.description;
                     lastRow.querySelector("input[name='hsn_sac[]']").value = item.hsn_sac || '';
                     lastRow.querySelector("input[name='quantity[]']").value = item.quantity;
-                    lastRow.querySelector("input[name='supply_rate[]']").value = item.supply_rate || 0;
-                    lastRow.querySelector("input[name='erection_rate[]']").value = item.erection_rate || 0;
+                    
+                    // --- MODIFY RATE FIX ---
+                    let sRate = item.supply_rate || 0;
+                    let eRate = item.erection_rate || 0;
+                    
+                    if (sRate === 0 && eRate === 0) {
+                        sRate = item.rate || 0;
+                    }
+
+                    lastRow.querySelector("input[name='supply_rate[]']").value = sRate;
+                    lastRow.querySelector("input[name='erection_rate[]']").value = eRate;
+                    
                     lastRow.querySelector("select[name='gst_rate[]']").value = item.gst_rate;
                     
                     calculateRow(lastRow);
@@ -469,7 +483,7 @@
 
     function removeRow(btn) {
         btn.closest('tr').remove();
-        calculateGrandTotal();
+        calculateRow(null);
     }
 
     function attachEvents(row) {
@@ -484,24 +498,47 @@
     }
 
     function calculateRow(row) {
-        const qty = parseFloat(row.querySelector(".qty").value) || 0;
-        const sup = parseFloat(row.querySelector(".sup-rate").value) || 0;
-        const ere = parseFloat(row.querySelector(".ere-rate").value) || 0;
-        const gst = parseFloat(row.querySelector(".gst").value) || 0;
-        
-        const basic = qty * (sup + ere);
-        const total = basic * (1 + gst / 100);
-        
-        row.querySelector(".rowTotal").textContent = total.toFixed(2);
+        if (row) {
+            const qty = parseFloat(row.querySelector(".qty").value) || 0;
+            const sup = parseFloat(row.querySelector(".sup-rate").value) || 0;
+            const ere = parseFloat(row.querySelector(".ere-rate").value) || 0;
+            const gst = parseFloat(row.querySelector(".gst").value) || 0;
+            
+            const basic = qty * (sup + ere);
+            const total = basic * (1 + gst / 100);
+            
+            row.querySelector(".rowTotal").textContent = total.toFixed(2);
+        }
         calculateGrandTotal();
     }
 
     function calculateGrandTotal() {
-        let gt = 0;
+        let totalBasic = 0;
+        let totalGst = 0;
+        
         document.querySelectorAll("#billItemsBody tr").forEach(row => {
-            gt += parseFloat(row.querySelector(".rowTotal").textContent) || 0;
+            const qty = parseFloat(row.querySelector(".qty").value) || 0;
+            const sup = parseFloat(row.querySelector(".sup-rate").value) || 0;
+            const ere = parseFloat(row.querySelector(".ere-rate").value) || 0;
+            const gst = parseFloat(row.querySelector(".gst").value) || 0;
+            
+            const basic = qty * (sup + ere);
+            const gstAmt = basic * (gst / 100);
+            
+            totalBasic += basic;
+            totalGst += gstAmt;
         });
-        document.getElementById("grandTotalDisplay").textContent = gt.toFixed(2);
+        
+        const exactTotal = totalBasic + totalGst;
+        const roundedTotal = Math.round(exactTotal);
+        const roundOff = roundedTotal - exactTotal;
+        
+        // Update Summary UI
+        document.getElementById("summary_basic").textContent = totalBasic.toFixed(2);
+        document.getElementById("summary_cgst").textContent = (totalGst / 2).toFixed(2);
+        document.getElementById("summary_sgst").textContent = (totalGst / 2).toFixed(2);
+        document.getElementById("summary_roundoff").textContent = roundOff.toFixed(2);
+        document.getElementById("summary_grand_total").textContent = roundedTotal.toFixed(2);
     }
 
     // --- Date Filter Logic for Sales Bills ---

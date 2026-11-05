@@ -297,7 +297,16 @@ def restrict_site_supervisor():
         if request.endpoint in blocked_endpoints:
             flash("Access Denied: You don't have permission to view this page.", "error")
             return redirect(url_for('dashboard'))
-
+@app.after_request
+def add_header(response):
+    """
+    Prevent the browser from caching authenticated pages.
+    Forces the browser to re-request the page from the server.
+    """
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, public, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 # ------------------------------------------------------------------
 # ERROR HANDLERS

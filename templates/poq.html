@@ -123,15 +123,17 @@
                     <td><strong>{{ item['material_name'] }}</strong></td>
                     <td>{{ item['unit'] }}</td>
                     <td>{{ item['quantity'] }}</td>
-                    <td>{{ "%.2f"|format(item['supply_rate'] or 0) }}</td>
-                    <td>{{ "%.2f"|format(item['erection_rate'] or 0) }}</td>
-                    <td>{{ "%.2f"|format(item['rate'] or 0) }}</td>
+                    <!-- FIX: inr filter -->
+                    <td>{{ item['supply_rate'] | inr }}</td>
+                    <td>{{ item['erection_rate'] | inr }}</td>
+                    <td>{{ item['rate'] | inr }}</td>
                     <td>{{ item['subcon_name'] or '-' }}</td>
-                    <td style="text-align: right; font-weight: bold;">{{ "%.2f"|format(item['amount'] or 0) }}</td>
+                    <td style="text-align: right; font-weight: bold;">{{ item['amount'] | inr }}</td>
                     <td class="no-print" style="text-align: center;">
                         <div style="display: flex; gap: 5px; justify-content: center;">
                             <a href="{{ url_for('poq', project=selected_project, edit=item['id']) }}" class="btn-add" style="padding: 4px 8px; font-size: 12px; background: #ffc107; color: black;">✏️</a>
-                            <a href="{{ url_for('delete_poq', id=item['id'], project=selected_project) }}" class="btn-remove" style="padding: 4px 8px; font-size: 12px;" onclick="return confirm('Delete this BOQ item?');">❌</a>
+                            <!-- FIX: Removed inline confirm -->
+                            <a href="{{ url_for('delete_poq', id=item['id'], project=selected_project) }}" class="btn-remove" style="padding: 4px 8px; font-size: 12px;">❌</a>
                         </div>
                     </td>
                 </tr>
@@ -142,7 +144,8 @@
             <tfoot>
                 <tr style="background: #e2e8f0;">
                     <td colspan="8" style="text-align: right; font-weight: bold; font-size: 16px;">Total BOQ Value:</td>
-                    <td style="text-align: right; font-weight: bold; font-size: 16px;">₹ {{ "%.2f"|format(total_boq_value) }}</td>
+                    <!-- FIX: inr filter -->
+                    <td style="text-align: right; font-weight: bold; font-size: 16px;">₹ {{ total_boq_value | inr }}</td>
                     <td class="no-print"></td>
                 </tr>
             </tfoot>
@@ -217,10 +220,10 @@
         document.querySelectorAll("#itemsBody tr").forEach(row => {
             grandTotal += parseFloat(row.querySelector(".rowTotal").textContent) || 0;
         });
-        document.getElementById("grandTotalDisplay").textContent = grandTotal.toFixed(2);
+        // FIX: Format Indian style in JS
+        document.getElementById("grandTotalDisplay").textContent = grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
-    // First row initialize
     const firstRow = document.querySelector("#itemsBody tr");
     if(firstRow) {
         attachEvents(firstRow);

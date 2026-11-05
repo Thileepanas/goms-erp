@@ -12,7 +12,7 @@
     th { background: #f1f5f9; color: var(--primary-blue); }
 </style>
 
-{% if not projects and not purchases and not pos and not parties %}
+{% if not projects and not purchases and not pos and not parties and not bills and not accounts and not labours %}
 <div class="card" style="text-align: center; padding: 50px;">
     <h2 style="color: #666;">No results found for "{{ query }}" 😔</h2>
     <p>Please try searching with a different keyword.</p>
@@ -54,7 +54,8 @@
                     <td><strong>{{ p['invoice_number'] }}</strong></td>
                     <td>{{ p['supplier_name'] }}</td>
                     <td>{{ p['invoice_date'] | dateformat }}</td>
-                    <td>{{ "%.2f"|format(p['total_amount']) }}</td>
+                    <!-- FIX: inr filter -->
+                    <td>{{ (p['total_amount'] or 0) | inr }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -106,4 +107,72 @@
     </div>
 </div>
 {% endif %}
+
+<!-- 5. Bills (Sales) Results (NEW: Added missing section) -->
+{% if bills %}
+<div class="result-card">
+    <h3>Sales Bills ({{ bills|length }})</h3>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Bill No</th><th>Project</th><th>Date</th><th>Total (₹)</th></tr></thead>
+            <tbody>
+                {% for b in bills %}
+                <tr>
+                    <td><strong>{{ b['bill_no'] }}</strong></td>
+                    <td>{{ b['project_name'] }}</td>
+                    <td>{{ b['bill_date'] | dateformat }}</td>
+                    <td>{{ (b['total_value'] or 0) | inr }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- 6. Accounts (Transactions) Results (NEW: Added missing section) -->
+{% if accounts %}
+<div class="result-card">
+    <h3>Transactions ({{ accounts|length }})</h3>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Date</th><th>Description</th><th>Paid Name</th><th>Type</th><th>Amount (₹)</th></tr></thead>
+            <tbody>
+                {% for a in accounts %}
+                <tr>
+                    <td>{{ a['transaction_date'] | dateformat }}</td>
+                    <td>{{ a['description'] }}</td>
+                    <td>{{ a['paid_name'] or '-' }}</td>
+                    <td>{{ a['transaction_type'] }}</td>
+                    <td>{{ (a['amount'] or 0) | inr }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- 7. Labours Results (NEW: Added missing section) -->
+{% if labours %}
+<div class="result-card">
+    <h3>Labours ({{ labours|length }})</h3>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Name</th><th>Designation</th><th>Daily Wage (₹)</th><th>Project</th></tr></thead>
+            <tbody>
+                {% for l in labours %}
+                <tr>
+                    <td><strong>{{ l['labour_name'] }}</strong></td>
+                    <td>{{ l['designation'] or '-' }}</td>
+                    <td>{{ (l['daily_wage'] or 0) | inr }}</td>
+                    <td>{{ l['project_name'] or '-' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
 {% endblock %}

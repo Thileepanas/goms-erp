@@ -30,9 +30,8 @@
                     <td style="font-weight: bold; color: {% if p.profit >= 0 %}#176b38{% else %}#b42318{% endif %};">
                         {{ "%.2f"|format(p.profit) }}
                     </td>
-                    <td class="no-print">
-                        
-                        <a href="{{ url_for('client_ledger', client=p.client) }}" class="btn" style="padding: 6px 12px; font-size: 12px; background: #0d47a1;">View Client Ledger</a>
+                    <td class="no-print"> 
+                        <a href="{{ url_for('project_pnl_detail', project_name=p.project_name) }}" class="btn" style="background: #0d47a1; padding: 6px 12px; font-size: 13px;">View P&L</a>
                     </td>
                 </tr>
                 {% else %}

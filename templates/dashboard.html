@@ -6,111 +6,213 @@
 {% block content %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+{% set is_supervisor = session.get('role') == 'Site Supervisor' %}
+{% set total_pending = (pending_approvals or 0) + (pending_gm_approvals or 0) %}
+
 <style>
-    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 30px; }
-    .stat-card { background: white; padding: 20px 15px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-left: 5px solid var(--primary-blue); display: flex; flex-direction: column; justify-content: center; min-height: 110px; }
-    .stat-card h4 { color: #666; font-size: 11px; margin-bottom: 10px; text-transform: uppercase; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .stat-card h2 { color: var(--primary-blue); font-size: 24px; margin: 0; font-weight: 800; }
+    /* KPI Grid — 6 cards on wide, 3 on medium, 2 on tablet, 1 on mobile */
+    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 30px; }
+    @media (min-width: 1400px) { .stats-grid { grid-template-columns: repeat(6, 1fr); } }
+    @media (max-width: 1024px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 600px)  { .stats-grid { grid-template-columns: 1fr; } }
+
+    /* 3-card variant for supervisors */
+    .stats-grid.three-cards { grid-template-columns: repeat(3, 1fr) !important; }
+    @media (max-width: 1024px) { .stats-grid.three-cards { grid-template-columns: repeat(2, 1fr) !important; } }
+    @media (max-width: 600px)  { .stats-grid.three-cards { grid-template-columns: 1fr !important; } }
+
+    .stat-card { background: white; padding: 18px 15px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-left: 5px solid var(--primary-blue); display: flex; flex-direction: column; justify-content: center; min-height: 100px; }
+    .stat-card h4 { color: #666; font-size: 11px; margin-bottom: 8px; text-transform: uppercase; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .stat-card h2 { color: var(--primary-blue); font-size: 22px; margin: 0; font-weight: 800; }
+    .stat-card .stat-sub { font-size: 11px; color: #999; margin-top: 4px; }
     .stat-card.blue { border-left-color: var(--primary-blue); }
     .stat-card.green { border-left-color: #176b38; }
     .stat-card.red { border-left-color: var(--accent-red); }
     .stat-card.orange { border-left-color: #ff9800; }
-    
-    .welcome-banner { background: linear-gradient(135deg, var(--primary-blue), #123a66); color: white; padding: 25px 30px; border-radius: 8px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
-    .welcome-banner h1 { margin-bottom: 8px; font-size: 24px; }
-    .welcome-banner p { color: rgba(255,255,255,0.8); font-size: 14px; }
-    
+    .stat-card.purple { border-left-color: #6a1b9a; }
+
+    /* Welcome banner */
+    .welcome-banner { background: linear-gradient(135deg, var(--primary-blue), #123a66); color: white; padding: 22px 28px; border-radius: 8px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
+    .welcome-banner h1 { margin-bottom: 6px; font-size: 22px; }
+    .welcome-banner p { color: rgba(255,255,255,0.85); font-size: 13px; }
+    .welcome-banner .banner-meta { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 8px; font-size: 12px; color: rgba(255,255,255,0.7); }
+    .welcome-banner .banner-meta span strong { color: white; }
+
+    /* Layout */
     .dashboard-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
-    .alert-box { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-    .alert-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #eee; }
-    .alert-item:last-child { border-bottom: none; }
-    .alert-badge { background: #e31e24; color: white; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+    .dashboard-layout.single { grid-template-columns: 1fr; }
+    @media (max-width: 900px) { .dashboard-layout { grid-template-columns: 1fr; } }
+
+    .panel { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .panel h3 { color: var(--primary-blue); border-bottom: 2px solid var(--accent-red); padding-bottom: 5px; display: inline-block; margin-bottom: 15px; }
+
+    /* Alerts (clickable) */
+    .alert-list { display: flex; flex-direction: column; }
+    a.alert-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 5px; border-bottom: 1px solid #eee; color: inherit; text-decoration: none; transition: 0.2s; border-radius: 4px; }
+    a.alert-item:last-child { border-bottom: none; }
+    a.alert-item:hover { background: #f9fbfc; padding-left: 10px; }
+    .alert-item .alert-text strong { display: block; font-size: 14px; color: var(--primary-blue); }
+    .alert-item .alert-text span { font-size: 12px; color: #666; }
+    .alert-badge { background: #e31e24; color: white; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; white-space: nowrap; }
     .alert-badge.warning { background: #ff9800; }
-    
-    @media (max-width: 1024px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } .dashboard-layout { grid-template-columns: 1fr; } }
-    @media (max-width: 600px) { .stats-grid { grid-template-columns: 1fr; } }
+    .alert-badge.blue { background: #0d47a1; }
+    .alert-badge.green { background: #176b38; }
+
+    /* Quick actions */
+    .quick-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 5px; }
+    .quick-actions a { display: block; padding: 14px 15px; text-align: center; border-radius: 6px; font-weight: 600; font-size: 13px; text-decoration: none; color: white; transition: 0.3s; }
+    .qa-bill { background: #176b38; } .qa-bill:hover { background: #11522a; }
+    .qa-po { background: #0a2240; } .qa-po:hover { background: #123a66; }
+    .qa-issue { background: #e31e24; } .qa-issue:hover { background: #b81319; }
+    .qa-pay { background: #0d47a1; } .qa-pay:hover { background: #083378; }
+
+    /* Charts */
+    .chart-wrap { position: relative; height: 240px; }
 </style>
 
+<!-- ============ WELCOME BANNER ============ -->
 <div class="welcome-banner">
     <div>
         <h1>Welcome back, {{ session['username'] }}! 👋</h1>
         <p>Here is what's happening with your projects today.</p>
+        <div class="banner-meta">
+            <span>📅 <strong>{{ today.strftime('%d %b %Y') }}</strong></span>
+            <span>🗓️ Financial Year: <strong>{{ fy_str }}</strong></span>
+            <span>👤 Role: <strong>{{ session.get('role', 'Admin') }}</strong></span>
+        </div>
     </div>
     <div style="font-size: 50px; opacity: 0.5;">⚡</div>
 </div>
 
-<div class="stats-grid">
+<!-- ============ KPI CARDS ============ -->
+<div class="stats-grid {% if is_supervisor %}three-cards{% endif %}">
+
     <div class="stat-card blue">
         <h4>Total Projects</h4>
         <h2>{{ total_projects or '0' }}</h2>
+        <span class="stat-sub">Active projects in system</span>
     </div>
+
+    {% if not is_supervisor %}
     <div class="stat-card green">
         <h4>Project Value</h4>
         <h2>₹ {{ total_project_value | inr }}</h2>
+        <span class="stat-sub">Total order book value</span>
     </div>
+
     <div class="stat-card red">
-        <h4>Total Sales (Billed)</h4>
+        <h4>Total Sales</h4>
         <h2>₹ {{ total_sales | inr }}</h2>
+        <span class="stat-sub">Billed to clients</span>
     </div>
+    {% endif %}
+
     <div class="stat-card orange">
         <h4>Active Workers</h4>
         <h2>{{ total_labour or '0' }}</h2>
+        <span class="stat-sub">Registered labour</span>
     </div>
+
+    {% if not is_supervisor %}
+    <div class="stat-card purple">
+        <h4>Pending Approvals</h4>
+        <h2>{{ total_pending }}</h2>
+        <span class="stat-sub">{{ pending_approvals }} MD · {{ pending_gm_approvals }} GM</span>
+    </div>
+    {% endif %}
+
+    <div class="stat-card {% if low_stock_count and low_stock_count > 0 %}red{% else %}green{% endif %}">
+        <h4>Low Stock Items</h4>
+        <h2>{{ low_stock_count or '0' }}</h2>
+        <span class="stat-sub">Below reorder level</span>
+    </div>
+
 </div>
 
-<div class="dashboard-layout">
-    <!-- 1. Profit & Loss Chart -->
-    <div class="alert-box">
-        <h3 style="color: var(--primary-blue); border-bottom: 2px solid var(--accent-red); padding-bottom: 5px; display: inline-block; margin-bottom: 15px;">Financial Overview</h3>
-        <div style="position: relative; height:250px; width:100%; display: flex; justify-content: center;">
+<!-- ============ ROW 1: Financial Chart + Alerts ============ -->
+<div class="dashboard-layout {% if is_supervisor %}single{% endif %}">
+
+    {% if not is_supervisor %}
+    <div class="panel">
+        <h3>Financial Overview</h3>
+        <div class="chart-wrap">
             <canvas id="incomeExpenseChart"></canvas>
         </div>
     </div>
+    {% endif %}
 
-    <!-- 2. Alerts & Quick Actions -->
-    <div class="alert-box">
-        <h3 style="color: var(--primary-blue); border-bottom: 2px solid var(--accent-red); padding-bottom: 5px; display: inline-block; margin-bottom: 15px;">Quick Alerts</h3>
-        
-        <div class="alert-item">
-            <div>
-                <strong style="display: block; font-size: 15px;">MD Approvals Pending</strong>
-                <span style="font-size: 12px; color: #666;">Purchase bills waiting for MD approval</span>
-            </div>
-            <div class="alert-badge warning" style="{% if pending_approvals == 0 %}background: #176b38;{% endif %}">
-                {{ pending_approvals }} Bills
-            </div>
-        </div>
-        
-        <div class="alert-item">
-            <div>
-                <strong style="display: block; font-size: 15px;">GM Approvals Pending (PO)</strong>
-                <span style="font-size: 12px; color: #666;">Purchase Orders waiting for GM approval</span>
-            </div>
-            <div class="alert-badge" style="background: #0d47a1; {% if pending_gm_approvals == 0 %}background: #176b38;{% endif %}">
-                {{ pending_gm_approvals }} POs
-            </div>
-        </div>
+    <div class="panel">
+        <h3>Quick Alerts</h3>
+        <div class="alert-list">
 
-        <div class="alert-item">
-            <div>
-                <strong style="display: block; font-size: 15px;">Low Stock Items</strong>
-                <span style="font-size: 12px; color: #666;">Materials that need to be reordered</span>
-            </div>
-            <div class="alert-badge" style="{% if low_stock_count == 0 %}background: #176b38;{% endif %}">
-                {{ low_stock_count }} Items
-            </div>
-        </div>
-        
-        <div style="margin-top: 15px; display: flex; gap: 10px;">
-            <a href="{{ url_for('accounts_entry') }}" class="btn" style="flex: 1; text-align: center; background: #176b38;">+ New Bill</a>
-            <a href="{{ url_for('purchases') }}" class="btn" style="flex: 1; text-align: center;">+ Purchase</a>
+            {% if not is_supervisor %}
+            <a href="{{ url_for('md_approval') }}" class="alert-item">
+                <div class="alert-text">
+                    <strong>MD Approvals Pending</strong>
+                    <span>Purchase bills waiting for MD approval</span>
+                </div>
+                <span class="alert-badge {% if pending_approvals == 0 %}green{% else %}warning{% endif %}">
+                    {{ pending_approvals }} Bills
+                </span>
+            </a>
+
+            <a href="{{ url_for('gm_approval') }}" class="alert-item">
+                <div class="alert-text">
+                    <strong>GM Approvals Pending (PO)</strong>
+                    <span>Purchase Orders waiting for GM approval</span>
+                </div>
+                <span class="alert-badge {% if pending_gm_approvals == 0 %}green{% else %}blue{% endif %}">
+                    {{ pending_gm_approvals }} POs
+                </span>
+            </a>
+            {% endif %}
+
+            <a href="{{ url_for('stock') }}" class="alert-item">
+                <div class="alert-text">
+                    <strong>Low Stock Items</strong>
+                    <span>Materials that need to be reordered</span>
+                </div>
+                <span class="alert-badge {% if low_stock_count == 0 %}green{% endif %}">
+                    {{ low_stock_count }} Items
+                </span>
+            </a>
+
         </div>
     </div>
 </div>
 
-<!-- 3. Recent Transactions -->
-<div class="alert-box">
-    <h3 style="color: var(--primary-blue); border-bottom: 2px solid var(--accent-red); padding-bottom: 5px; display: inline-block; margin-bottom: 15px;">Recent Sales Bills</h3>
+<!-- ============ ROW 2: Project Status + Quick Actions ============ -->
+<div class="dashboard-layout">
+
+    <div class="panel">
+        <h3>Project Status Breakdown</h3>
+        {% if status_labels %}
+        <div class="chart-wrap">
+            <canvas id="projectStatusChart"></canvas>
+        </div>
+        {% else %}
+        <p style="text-align: center; color: #999; padding: 40px 0;">No projects created yet.</p>
+        {% endif %}
+    </div>
+
+    <div class="panel">
+        <h3>Quick Actions</h3>
+        <div class="quick-actions">
+            {% if not is_supervisor %}
+            <a href="{{ url_for('accounts_entry') }}" class="qa-bill">+ New Bill</a>
+            <a href="{{ url_for('purchases') }}" class="qa-po">+ Purchase</a>
+            {% endif %}
+            <a href="{{ url_for('material_issue') }}" class="qa-issue">+ Material Issue</a>
+            <a href="{{ url_for('attendance') }}" class="qa-pay">+ Attendance</a>
+        </div>
+    </div>
+
+</div>
+
+<!-- ============ RECENT SALES BILLS ============ -->
+{% if not is_supervisor %}
+<div class="panel">
+    <h3>Recent Sales Bills</h3>
     <div class="table-wrap">
         <table>
             <thead>
@@ -122,15 +224,15 @@
                     <th class="no-print" style="text-align: center;">Action</th>
                 </tr>
             </thead>
-            <tbody> 
+            <tbody>
                 {% for b in recent_bills %}
                 <tr>
                     <td><strong>{{ b['bill_no'] }}</strong></td>
                     <td>{{ b['bill_date'] | dateformat }}</td>
                     <td>{{ b['project_name'] }}</td>
-                    <td style="font-weight: bold; color: #0d47a1;">₹ {{ b['total_value'] | round | inr }}</td>
+                    <td style="font-weight: bold; color: #0d47a1;">₹ {{ b['total_value'] | inr }}</td>
                     <td class="no-print" style="text-align: center;">
-                        <a href="{{ url_for('print_bill', id=b['id']) }}" target="_blank" class="btn" style="padding: 4px 8px; font-size: 12px; background: #0a2240;">🖨️ Print</a>
+                        <a href="{{ url_for('print_bill', id=b['id']) }}" target="_blank" class="btn" style="padding: 4px 10px; font-size: 12px; background: #0a2240;">🖨️ Print</a>
                     </td>
                 </tr>
                 {% else %}
@@ -140,30 +242,64 @@
         </table>
     </div>
 </div>
+{% endif %}
 
 {% endblock %}
 
 {% block scripts %}
 <script>
-    const ctx = document.getElementById('incomeExpenseChart').getContext('2d');
-    const incomeExpenseChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Total Income', 'Total Expense'],
-            datasets: [{
-                data: [{{ total_income }}, {{ total_expense }}],
-                backgroundColor: ['#176b38', '#e31e24'],
-                borderWidth: 2,
-                borderColor: '#fff'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { position: 'bottom', labels: { font: { size: 14, family: 'Segoe UI' } } }
+{% if not is_supervisor %}
+// ===== Financial Overview (Doughnut) =====
+document.addEventListener("DOMContentLoaded", function() {
+    const ieCtx = document.getElementById('incomeExpenseChart');
+    if (ieCtx) {
+        new Chart(ieCtx.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Total Income', 'Total Expense'],
+                datasets: [{
+                    data: [{{ total_income or 0 }}, {{ total_expense or 0 }}],
+                    backgroundColor: ['#176b38', '#e31e24'],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { font: { size: 13 } } }
+                }
             }
-        }
-    });
+        });
+    }
+});
+{% endif %}
+
+// ===== Project Status (Pie) =====
+document.addEventListener("DOMContentLoaded", function() {
+    const psCtx = document.getElementById('projectStatusChart');
+    if (psCtx) {
+        new Chart(psCtx.getContext('2d'), {
+            type: 'pie',
+            data: {
+                labels: {{ status_labels | tojson }},
+                datasets: [{
+                    data: {{ status_counts | tojson }},
+                    backgroundColor: ['#0a2240', '#176b38', '#e31e24', '#ff9800', '#6a1b9a', '#0d47a1'],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { font: { size: 13 } } }
+                }
+            }
+        });
+    }
+});
 </script>
 {% endblock %}

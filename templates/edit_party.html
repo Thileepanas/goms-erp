@@ -1,51 +1,108 @@
 {% extends "base.html" %}
 
-{% block title %}Edit Party{% endblock %}
-{% block page_title %}Edit Party{% endblock %}
+{% block title %}Party Master{% endblock %}
+{% block page_title %}Party / Vendor Management{% endblock %}
 
 {% block content %}
-<div class="card">
-    <h3>Edit Party Details</h3>
+<style>
+    .grid-form { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
+    @media(max-width: 768px) { .grid-form { grid-template-columns: 1fr; } }
+    
+    .input-group label { font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px; display: block; }
+    .input-group input, .input-group select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+</style>
+
+<div class="card" style="background: #f9fbfc; border-top: 4px solid var(--primary-blue);">
+    <h3>Add New Party / Vendor</h3>
     <form method="POST">
-        <div class="grid-3">
-            <div>
-                <label>Party Name *</label>
-                <input name="party_name" id="party_name" value="{{ party['party_name'] }}" required>
+        <div class="grid-form">
+            <div class="input-group">
+                <label>GSTIN *</label>
+                <input type="text" name="gstin" id="gstin" required placeholder="e.g. 33AACFV0222D1ZY" maxlength="15" style="text-transform: uppercase;">
+                <small style="color: #666; font-size: 11px;">Type 15 digits to auto-fetch</small>
             </div>
-            <div>
+            
+            <div class="input-group">
+                <label>Party Name *</label>
+                <input type="text" name="party_name" id="party_name" required placeholder="e.g. Sathyamoorthy & Co">
+            </div>
+
+            <div class="input-group">
                 <label>Party Type *</label>
                 <select name="party_type" required>
-                    <option value="Debtor" {% if party['party_type'] == 'Debtor' %}selected{% endif %}>Debtor (Client)</option>
-                    <option value="Creditor" {% if party['party_type'] == 'Creditor' %}selected{% endif %}>Creditor (Vendor)</option>
+                    <option value="Debtor">Debtor (Client / Customer)</option>
+                    <option value="Creditor">Creditor (Vendor / Supplier)</option>
                 </select>
             </div>
-            <div>
+
+            <div class="input-group">
                 <label>Contact Number</label>
-                <input name="contact_number" value="{{ party['contact_number'] or '' }}">
+                <input type="text" name="contact_number" placeholder="Phone Number">
             </div>
-            <div>
-                <label>Email</label>
-                <input type="email" name="email" value="{{ party['email'] or '' }}">
+
+            <div class="input-group">
+                <label>Email Address</label>
+                <input type="email" name="email" placeholder="Email">
             </div>
-            <div>
-                <label>GSTIN</label>
-                <!-- GSTIN-க்கு id, maxlength மற்றும் Uppercase சேர்க்கப்பட்டுள்ளது -->
-                <input name="gstin" id="gstin" required value="{{ party['gstin'] or '' }}" maxlength="15" style="text-transform: uppercase;">
-            </div>
-            <div>
+
+            <div class="input-group">
                 <label>Opening Balance (₹)</label>
-                <input type="number" name="opening_balance" step="0.01" value="{{ party['opening_balance'] }}">
+                <input type="number" name="opening_balance" step="0.01" value="0" placeholder="0.00">
             </div>
-            <div style="grid-column: span 3;">
+
+            <!-- FIX: Changed span 3 to 1 / -1 for mobile compatibility -->
+            <div class="input-group" style="grid-column: 1 / -1;">
                 <label>Address</label>
-                <input name="address" id="address" value="{{ party['address'] or '' }}">
+                <input type="text" name="address" id="address" placeholder="Full Address">
             </div>
         </div>
-        <div style="margin-top: 20px; display: flex; gap: 10px;">
-            <button type="submit" class="btn">Update Party</button>
-            <a href="{{ url_for('parties') }}" class="btn" style="background: #666;">Cancel</a>
-        </div>
+        
+        <button type="submit" class="btn" style="margin-top: 15px; background: #176b38;">Save Party</button>
     </form>
+</div>
+
+<div class="card">
+    <h3>Existing Parties</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Party Name</th>
+                    <th>Type</th>
+                    <th>GSTIN</th>
+                    <th>Contact</th>
+                    <th>Address</th>
+                    <th class="no-print" style="text-align: center;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in parties %}
+                <tr>
+                    <td><strong>{{ p['party_name'] }}</strong></td>
+                    <td>
+                        {% if p['party_type'] == 'Debtor' %}
+                            <span style="background: #e0f5e8; color: #176b38; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">Client</span>
+                        {% else %}
+                            <span style="background: #fff0f0; color: #b42318; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">Vendor</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ p['gstin'] or '-' }}</td>
+                    <td>{{ p['contact_number'] or '-' }}</td>
+                    <td>{{ p['address'] or '-' }}</td>
+                    <td class="no-print" style="text-align: center;">
+                        <div style="display: flex; gap: 5px; justify-content: center;">
+                            <a href="{{ url_for('edit_party', id=p['id']) }}" class="btn" style="padding: 4px 8px; font-size: 12px; background: #ffc107; color: black;">✏️ Modify</a>
+                            <!-- FIX: Removed inline confirm (Handled by base.html) -->
+                            <a href="{{ url_for('delete_party', id=p['id']) }}" class="btn" style="padding: 4px 8px; font-size: 12px; background: #e31e24;">❌</a>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" style="text-align: center;">No parties found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 {% endblock %}
 
@@ -60,9 +117,7 @@
             gstInput.addEventListener('blur', function() {
                 const gstin = this.value.trim().toUpperCase();
                 
-                // GST எண் 15 டிஜிட் இருக்கான்னு செக் பண்றோம்
                 if (gstin.length === 15) {
-                    
                     nameInput.placeholder = "Fetching details...";
                     addressInput.placeholder = "Fetching details...";
                     nameInput.style.backgroundColor = "#f0f0f0";
@@ -79,19 +134,17 @@
                             nameInput.value = data.legal_name;
                             addressInput.value = data.address;
                         } else {
-                            alert('Invalid GSTIN or details not found.');
+                            alert(data.error || 'Invalid GSTIN or details not found.');
                         }
-                        
-                        nameInput.placeholder = "";
-                        addressInput.placeholder = "";
-                        nameInput.style.backgroundColor = "";
-                        addressInput.style.backgroundColor = "";
                     })
                     .catch(error => {
                         console.error('Error fetching GST:', error);
                         alert('GST API Error. Please type the details manually.');
-                        nameInput.placeholder = "";
-                        addressInput.placeholder = "";
+                    })
+                    .finally(() => {
+                        // Revert styling
+                        nameInput.placeholder = "e.g. Sathyamoorthy & Co";
+                        addressInput.placeholder = "Full Address";
                         nameInput.style.backgroundColor = "";
                         addressInput.style.backgroundColor = "";
                     });

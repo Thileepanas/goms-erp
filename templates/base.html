@@ -10,6 +10,7 @@
             --accent-red: #e31e24;
             --bg-light: #f4f7f9;
             --text-dark: #333;
+            --text-light: #666;
             --white: #ffffff;
             --border: #d1d9e2;
         }
@@ -23,7 +24,7 @@
         .sidebar-menu > li > a { display: block; padding: 15px 25px; color: rgba(255,255,255,0.8); text-decoration: none; transition: 0.3s; font-size: 15px; border-left: 4px solid transparent; }
         .sidebar-menu > li > a:hover, .sidebar-menu > li > a.active { background-color: rgba(255,255,255,0.1); color: var(--white); border-left: 4px solid var(--accent-red); }
 
-        /* Dropdown Menu Style (Desktop Hover) */
+        /* Dropdown Menu Style (Hover Effect for Desktop) */
         .dropdown { position: relative; }
         .dropdown-menu { display: none; list-style: none; background-color: #081a30; padding: 0; position: absolute; z-index: 1000; width: 100%; }
         .dropdown:hover .dropdown-menu { display: block; }
@@ -42,6 +43,8 @@
         .btn-logout:hover { background: #b81319; }
         .btn-backup { background: #176b38; color: white; text-decoration: none; padding: 8px 16px; border-radius: 5px; font-size: 14px; font-weight: bold; transition: 0.3s; }
         .btn-backup:hover { background: #11522a; }
+        .btn-pass { background: #666; color: white; text-decoration: none; padding: 8px 16px; border-radius: 5px; font-size: 14px; font-weight: bold; transition: 0.3s; }
+        .btn-pass:hover { background: #444; }
 
         .content-area { padding: 30px; flex: 1; overflow-y: auto; }
 
@@ -59,6 +62,8 @@
         /* Buttons */
         .btn { background: var(--primary-blue); color: var(--white); border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: bold; transition: 0.3s; display: inline-block; text-decoration: none; }
         .btn:hover { background: #123a66; }
+        .btn-red { background: var(--accent-red); }
+        .btn-red:hover { background: #b81319; }
 
         /* Tables */
         .table-wrap { overflow-x: auto; }
@@ -72,58 +77,24 @@
         .alert.success { background: #e0f5e8; color: #176b38; border-left: 5px solid #176b38; }
         .alert.error { background: #fff0f0; color: #b42318; border-left: 5px solid #b42318; }
 
-        /* ================== MOBILE VIEW (Phone) ================== */
+        /* ================== MOBILE VIEW ================== */
         @media(max-width: 768px) {
             body { flex-direction: column; }
-            
-            /* சைடுபார் முழு அகலத்துக்கு மாறும் */
-            .sidebar { width: 100%; flex-direction: column; }
+            .sidebar { width: 100%; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; }
             .sidebar-header { border: none; padding: 10px; width: 100%; }
+            .sidebar-menu { display: flex; padding: 0; overflow-x: auto; width: 100%; white-space: nowrap; }
+            .sidebar-menu > li > a { padding: 15px; border-left: none; border-bottom: 3px solid transparent; }
+            .sidebar-menu > li > a.active { border-left: none; border-bottom: 3px solid var(--accent-red); }
             
-            /* மெனுவை நேராக (Vertical) மாற்றுகிறோம் */
-            .sidebar-menu { 
-                display: flex; 
-                flex-direction: column; 
-                padding: 0; 
-                width: 100%; 
-            }
-            .sidebar-menu > li > a { 
-                padding: 15px; 
-                border-left: none; 
-                border-bottom: 1px solid rgba(255,255,255,0.1); 
-            }
-            .sidebar-menu > li > a.active { 
-                border-left: 4px solid var(--accent-red); 
-                border-bottom: 1px solid rgba(255,255,255,0.1);
-            }
-            
-            /* மொபைல்ல டிராப்-டவுன் மெனுவை எப்பவுமே ஓபனா காட்டு (No JS Needed) */
-            .dropdown > a {
-                pointer-events: none; /* மேல கிளிக் பண்ணா பேஜ் ரீஃப்ரெஷ் ஆகாம தடுக்க */
-                background-color: rgba(0,0,0,0.2);
-                font-weight: bold;
-            }
-            .dropdown-menu { 
-                display: block !important; /* எப்பவுமே ஓபன் ஆக இருக்கும் */
-                position: static; 
-                box-shadow: none; 
-                background-color: #05121f;
-                width: 100%;
-                padding-left: 10px;
-            }
-            .dropdown-menu li a {
-                padding: 12px 25px;
-                border-bottom: 1px solid rgba(255,255,255,0.05);
-            }
-
-            .topbar { flex-direction: column; align-items: flex-start; gap: 10px; padding: 15px; }
+            .topbar { flex-direction: column; align-items: flex-start; gap: 10px; }
             .user-area { width: 100%; justify-content: space-between; flex-wrap: wrap; }
             .grid-2, .grid-3 { grid-template-columns: 1fr; }
             
+            /* மொபைல்ல டிராப்-டவுன் மெனு அழகா விழ */
+            .dropdown-menu { position: absolute; top: 100%; left: 0; min-width: 200px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+
             /* மொபைல்ல மட்டும் Backup பட்டனை மறைக்க */
             .btn-backup { display: none !important; }
-            
-            .content-area { padding: 15px; }
         }
     </style>
 </head>
@@ -150,8 +121,9 @@
                     <li><a href="{{ url_for('poq') }}">BOQ (Estimate)</a></li>
                     <li><a href="{{ url_for('work_progress') }}">Work Progress</a></li>
                     <li><a href="{{ url_for('po') }}">PO (Purchase Order)</a></li>
+                    <li><a href="{{ url_for('gm_approval') }}">GM Approvals (PO)</a></li>
                     <li><a href="{{ url_for('purchases') }}">Purchases</a></li>
-                    <li><a href="{{ url_for('stock') }}">Inventory</a></li>
+                    <li><a href="{{ url_for('stock') }}">Inventory</a></li> 
                     <li><a href="{{ url_for('material_issue') }}">Material Issue</a></li>
                 </ul>
             </li>
@@ -205,6 +177,7 @@
 
             <div class="user-area">
                 <span class="user-info">Welcome, {{ session['username'] }} ({{ session.get('role') }})</span>
+                <!-- Backup பட்டன் (மொபைல்ல இது மறைஞ்சிடும்) -->
                 <a href="{{ url_for('backup') }}" class="btn-backup">💾 Backup</a>
                 <a href="{{ url_for('logout') }}" class="btn-logout">Logout</a>
             </div>
@@ -222,6 +195,40 @@
             {% block content %}{% endblock %}
         </div>
     </div>
+
+    <!-- ================== MOBILE DROPDOWN FIX JS ================== -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (window.innerWidth <= 1024) {
+                const dropdownToggles = document.querySelectorAll('.dropdown > a');
+                
+                dropdownToggles.forEach(toggle => {
+                    toggle.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        
+                        const menu = this.nextElementSibling;
+                        const isVisible = menu.style.display === 'block';
+                        
+                        document.querySelectorAll('.dropdown-menu').forEach(m => {
+                            m.style.display = 'none';
+                        });
+                        
+                        if (!isVisible) {
+                            menu.style.display = 'block';
+                        }
+                    });
+                });
+                
+                document.addEventListener('click', function(e) {
+                    if (!e.target.closest('.dropdown')) {
+                        document.querySelectorAll('.dropdown-menu').forEach(m => {
+                            m.style.display = 'none';
+                        });
+                    }
+                });
+            }
+        });
+    </script>
 
     {% block scripts %}{% endblock %}
 </body>

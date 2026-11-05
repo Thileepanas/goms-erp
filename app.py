@@ -11,6 +11,8 @@ import secrets
 from datetime import datetime, timedelta
 import pandas as pd
 import requests
+import csv
+import io
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE = os.path.join(BASE_DIR, "goms_erp_new.db")
@@ -48,7 +50,6 @@ def format_inr(number):
     try:
         number = float(number)
     except (ValueError, TypeError):
-        # FIX: don't return raw object; keep formatter output predictable
         return "0.00"
 
     is_negative = False
@@ -182,7 +183,8 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT, supplier_gstin TEXT, supplier_name TEXT, invoice_number TEXT,
         invoice_date TEXT, total_value REAL DEFAULT 0, match_status TEXT DEFAULT 'Unmatched'
     )""")
-    # FIX: indentation corrected (was 8 spaces, now 4 — was causing IndentationError)
+    
+    # FIX: Indentation corrected
     conn.execute("CREATE TABLE IF NOT EXISTS tenders (id INTEGER PRIMARY KEY AUTOINCREMENT, tender_no TEXT NOT NULL, client_name TEXT NOT NULL, tender_date TEXT, submission_date TEXT, status TEXT DEFAULT 'Pending', estimated_value REAL DEFAULT 0)")
     conn.execute("CREATE TABLE IF NOT EXISTS tender_items (id INTEGER PRIMARY KEY AUTOINCREMENT, tender_id INTEGER NOT NULL, description TEXT, unit TEXT, quantity REAL DEFAULT 0, rate REAL DEFAULT 0, amount REAL DEFAULT 0)")
 
@@ -218,14 +220,8 @@ def init_db():
     add_column("bills", "bill_type", "TEXT DEFAULT 'BOQ'")
     add_column("po", "gm_approval", "TEXT DEFAULT 'Pending'")
 
-    user_count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-    if user_count == 0:
-        salt, password_hash = hash_password("ChangeMe@123")
-        conn.execute("INSERT INTO users (username, salt, password_hash, role) VALUES (?, ?, ?, ?)", ("admin", salt, password_hash, "Admin"))
-        conn.commit()
     # ============================================================
     # PERFORMANCE INDEXES
-    # Makes queries 10-100x faster as data grows
     # ============================================================
     indexes = [
         "CREATE INDEX IF NOT EXISTS idx_purchases_project   ON purchases(project_name)",
@@ -270,6 +266,13 @@ def init_db():
         except Exception as e:
             print(f"Index skipped: {e}")
     conn.commit()
+
+    user_count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    if user_count == 0:
+        salt, password_hash = hash_password("ChangeMe@123")
+        conn.execute("INSERT INTO users (username, salt, password_hash, role) VALUES (?, ?, ?, ?)", ("admin", salt, password_hash, "Admin"))
+        conn.commit()
+
     conn.close()
 
 
@@ -289,10 +292,9 @@ def restrict_site_supervisor():
             'edit_user_role', 'backup', 'md_approval', 'md_approve',
             'gst_reconciliation', 'run_reconciliation', 'vendor_report',
             'purchases', 'edit_purchase', 'delete_purchase', 'gm_approval', 'gm_approve',
-            # FIX: additional commercial/approval routes blocked for supervisors
             'po', 'edit_po', 'print_po', 'poq', 'delete_poq',
             'tenders', 'tender_items', 'convert_tender', 'update_tender_status',
-            'reports'
+            'reports', 'reports_export_csv'
         ]
         if request.endpoint in blocked_endpoints:
             flash("Access Denied: You don't have permission to view this page.", "error")
@@ -306,10 +308,9 @@ def restrict_site_supervisor():
 def not_found(e):
     return "<h2 style='color:#c00;padding:20px;'>404 - Page Not Found</h2><p style='padding:20px;'>The page you requested does not exist.</p>", 404
 
-
 @app.errorhandler(500)
 def internal_error(e):
-    return "<h2 style='color:#c00;padding:20px;'>Internal Server Error</h2><p style='padding:20px;'>An unexpected error occurred. Please try again or contact your administrator.</p>", 500
+    return "<h2 style='color:#c00;padding:20px;'>Internal Server Error</h2><p style='padding:20px;'>An unexpected error occurred. Please try again.</p>", 500
 
 
 # ------------------------------------------------------------------
@@ -320,14 +321,12 @@ def get_gst_details():
     if not session.get("username"):
         return jsonify({'error': 'Unauthorized'}), 401
 
-    # FIX: silent=True avoids crash on non-JSON body
     data = request.get_json(silent=True) or {}
     gstin = (data.get('gstin') or '').strip().upper()
 
     if not gstin or len(gstin) != 15:
         return jsonify({'error': 'Invalid GSTIN length'}), 400
 
-    # FIX: API key no longer hardcoded — read from environment
     API_KEY = os.environ.get("GST_API_KEY", "")
     if not API_KEY:
         return jsonify({'error': 'GST API not configured on server'}), 500
@@ -477,6 +476,7 @@ def dashboard():
         fy_str=fy_str,
     )
 
+
 @app.route("/change_password", methods=["GET", "POST"])
 def change_password():
     if not session.get("username"):
@@ -552,7 +552,6 @@ def delete_user(id):
     if not session.get("username"):
         return redirect(url_for("login"))
 
-    # FIX: role-based check + prevent self-delete
     if session.get("role") != "Admin":
         flash("Only Admin can delete users.", "error")
         return redirect(url_for("users"))
@@ -903,7 +902,6 @@ def purchases():
         return render_template("purchases.html", purchases=purchase_list, materials=materials, po_items_list=po_items_list)
 
     except Exception as e:
-        # FIX: safe close + no raw exception leaked to browser
         if conn is not None:
             try:
                 conn.close()
@@ -1061,7 +1059,6 @@ def delete_stock(id):
     m_name = material['material_name']
     ledger_count = conn.execute("SELECT COUNT(*) FROM stock_ledger WHERE material_name = ?", (m_name,)).fetchone()[0]
 
-    # FIX: refuse to silently wipe ledger history
     force = request.args.get("force") == "1"
     if ledger_count and not force:
         flash(f"Cannot delete '{m_name}': {ledger_count} ledger entries exist. Add ?force=1 to the URL to force delete.", "error")
@@ -1241,7 +1238,6 @@ def accounts_entry():
         return redirect(url_for("login"))
 
     conn = get_db()
-    # FIX: fallback to form field so POSTs without ?project= still work
     selected_project = request.args.get("project", "") or request.form.get("project_name", "")
 
     edit_bill_id = request.args.get("edit_bill")
@@ -1423,7 +1419,7 @@ def delete_account_entry(id):
     if not session.get("username"):
         return redirect(url_for("login"))
     project_name = request.args.get("project", "")
-    tab = request.args.get("tab", "tab4")  # NEW
+    tab = request.args.get("tab", "tab4")
     conn = get_db()
     conn.execute("DELETE FROM accounts WHERE id = ?", (id,))
     conn.commit()
@@ -1431,12 +1427,13 @@ def delete_account_entry(id):
     flash("Ledger entry deleted successfully!", "success")
     return redirect(url_for("accounts_entry", project=project_name, tab=tab))
 
+
 @app.route("/bills/delete/<int:id>")
 def delete_bill(id):
     if not session.get("username"):
         return redirect(url_for("login"))
     project_name = request.args.get("project", "")
-    tab = request.args.get("tab", "tab3") 
+    tab = request.args.get("tab", "tab3")
     conn = get_db()
     conn.execute("DELETE FROM bill_items WHERE bill_id = ?", (id,))
     conn.execute("DELETE FROM bills WHERE id = ?", (id,))
@@ -1444,6 +1441,7 @@ def delete_bill(id):
     conn.close()
     flash("Bill entry deleted successfully!", "success")
     return redirect(url_for("accounts_entry", project=project_name, tab=tab))
+
 
 @app.route("/bill/print/<int:id>")
 def print_bill(id):
@@ -1504,15 +1502,12 @@ def project_pnl_detail(project_name):
         return redirect(url_for("login"))
 
     conn = get_db()
-
     project = conn.execute("SELECT * FROM projects WHERE project_name = ?", (project_name,)).fetchone()
-
     transactions = conn.execute("""
         SELECT * FROM accounts
         WHERE project_name = ?
         ORDER BY transaction_date ASC, id ASC
     """, (project_name,)).fetchall()
-
     conn.close()
 
     total_inflow = sum(t['amount'] for t in transactions if t['transaction_type'] == 'Income')
@@ -1893,8 +1888,9 @@ def work_progress():
                 "erection_rate": item['erection_rate'] or 0,
             })
 
+        # FIX: Include id, is_billed_supply, is_billed_erection for history table
         work_history_raw = conn.execute("""
-            SELECT wp.work_date, bq.material_name, wp.qty_supply, wp.qty_erection, wp.remarks
+            SELECT wp.id, wp.work_date, bq.material_name, wp.qty_supply, wp.qty_erection, wp.remarks, wp.is_billed_supply, wp.is_billed_erection 
             FROM work_progress wp
             JOIN poq bq ON wp.boq_item_id = bq.id
             WHERE wp.project_name = ?
@@ -1908,6 +1904,65 @@ def work_progress():
                            selected_project=selected_project,
                            boq_progress_list=boq_progress_list,
                            work_history=work_history)
+
+
+@app.route("/work_progress/delete/<int:id>")
+def delete_work_progress(id):
+    if not session.get("username"):
+        return redirect(url_for("login"))
+    project_name = request.args.get("project", "")
+    
+    conn = get_db()
+    wp = conn.execute("SELECT * FROM work_progress WHERE id = ?", (id,)).fetchone()
+    
+    if wp:
+        if wp['is_billed_supply'] == 1 or wp['is_billed_erection'] == 1:
+            flash("Cannot delete: This work is already billed in an RA Bill.", "error")
+        else:
+            conn.execute("DELETE FROM work_progress WHERE id = ?", (id,))
+            conn.commit()
+            flash("Work progress entry deleted successfully!", "success")
+    else:
+        flash("Entry not found!", "error")
+        
+    conn.close()
+    return redirect(url_for("work_progress", project=project_name))
+
+
+@app.route("/work_progress/edit/<int:id>", methods=["POST"])
+def edit_work_progress(id):
+    if not session.get("username"):
+        return redirect(url_for("login"))
+    project_name = request.args.get("project", "")
+    
+    conn = get_db()
+    wp = conn.execute("SELECT * FROM work_progress WHERE id = ?", (id,)).fetchone()
+    
+    if not wp:
+        flash("Entry not found!", "error")
+        conn.close()
+        return redirect(url_for("work_progress", project=project_name))
+        
+    if wp['is_billed_supply'] == 1 or wp['is_billed_erection'] == 1:
+        flash("Cannot edit: This work is already billed.", "error")
+        conn.close()
+        return redirect(url_for("work_progress", project=project_name))
+
+    try:
+        new_supply = float(request.form.get("qty_supply") or 0)
+        new_erection = float(request.form.get("qty_erection") or 0)
+        remarks = request.form.get("remarks", "")
+        
+        conn.execute("""
+            UPDATE work_progress SET qty_supply=?, qty_erection=?, remarks=? WHERE id=?
+        """, (new_supply, new_erection, remarks, id))
+        conn.commit()
+        flash("Work progress updated successfully!", "success")
+    except Exception as e:
+        flash(f"Error: {str(e)}", "error")
+        
+    conn.close()
+    return redirect(url_for("work_progress", project=project_name))
 
 
 @app.route("/generate_ra_bill/<project_name>")
@@ -2225,7 +2280,6 @@ def run_reconciliation():
         purchase = conn.execute("SELECT total_amount FROM purchases WHERE invoice_number = ?", (row['invoice_number'],)).fetchone()
 
         if purchase:
-            # FIX: tolerance reduced to paise level
             if abs((purchase['total_amount'] or 0) - (row['total_value'] or 0)) < 0.01:
                 conn.execute("UPDATE gstr2b_data SET match_status = 'Matched' WHERE id = ?", (row['id'],))
             else:
@@ -2288,7 +2342,6 @@ def md_approval():
 
         return render_template("md_approval.html", pending=pending_with_progress, approved=approved)
     except Exception as e:
-        # FIX: safe close + no raw exception in browser
         if conn is not None:
             try:
                 conn.close()
@@ -2312,7 +2365,7 @@ def md_approve(id):
 
 
 # ------------------------------------------------------------------
-# REPORTS
+# REPORTS & CSV EXPORT
 # ------------------------------------------------------------------
 @app.route("/reports", methods=["GET"])
 def reports():
@@ -2361,6 +2414,7 @@ def reports():
                            total_order_value=total_order_value, total_purchase_value=total_purchase_value,
                            total_sales_value=total_sales_value)
 
+
 @app.route("/reports/export/csv")
 def reports_export_csv():
     if not session.get("username"):
@@ -2370,13 +2424,10 @@ def reports_export_csv():
         flash("Access Denied: You don't have permission to export reports.", "error")
         return redirect(url_for("dashboard"))
 
-    import csv, io
-
     conn = get_db()
     selected_project = request.args.get("project", "")
     selected_month = request.args.get("month", "")
 
-    # Build filtered purchase list
     pq = "SELECT * FROM purchases WHERE 1=1"
     pq_params = []
     if selected_project:
@@ -2387,7 +2438,6 @@ def reports_export_csv():
         pq_params.append(selected_month)
     purchase_list = conn.execute(pq + " ORDER BY invoice_date", pq_params).fetchall()
 
-    # Build filtered bill list
     bq = "SELECT * FROM bills WHERE 1=1"
     bq_params = []
     if selected_project:
@@ -2400,11 +2450,9 @@ def reports_export_csv():
 
     conn.close()
 
-    # Build CSV in memory
     output = io.StringIO()
     writer = csv.writer(output)
 
-    # Section 1: Purchases
     writer.writerow(["PURCHASES (INVOICES)"])
     writer.writerow(["Date", "Invoice No", "Project", "Vendor", "Amount (Rs)"])
     total_purchase = 0
@@ -2421,7 +2469,6 @@ def reports_export_csv():
     writer.writerow(["", "", "", "TOTAL", f"{total_purchase:.2f}"])
     writer.writerow([])
 
-    # Section 2: Bills
     writer.writerow(["SALES BILLS (CLIENT INVOICES)"])
     writer.writerow(["Date", "Bill No", "Project", "Amount (Rs)"])
     total_bills = 0
@@ -2437,7 +2484,6 @@ def reports_export_csv():
     writer.writerow(["", "", "TOTAL", f"{total_bills:.2f}"])
     writer.writerow([])
 
-    # Summary
     writer.writerow(["SUMMARY"])
     writer.writerow(["Filter Project", selected_project or "All Projects"])
     writer.writerow(["Filter Month", selected_month or "All Months"])
@@ -2445,7 +2491,6 @@ def reports_export_csv():
     writer.writerow(["Total Sales", f"{total_bills:.2f}"])
     writer.writerow(["Net Difference", f"{total_bills - total_purchase:.2f}"])
 
-    # UTF-8 with BOM so Excel opens Rs and Indian chars correctly
     csv_bytes = io.BytesIO(output.getvalue().encode("utf-8-sig"))
     filename = f"GOMS_Reports_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
 
@@ -2455,6 +2500,7 @@ def reports_export_csv():
         as_attachment=True,
         download_name=filename
     )
+
 
 @app.route("/vendor_report")
 def vendor_report():
@@ -2559,6 +2605,6 @@ init_db()
 
 if __name__ == "__main__":
     print("--------------------------------")
-    print("GOMS ELECTRICAL PVT LTD ERP")
+    print("GOMS ELECTRICALS PVT LTD ERP")
     print("--------------------------------")
     app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)

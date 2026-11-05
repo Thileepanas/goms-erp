@@ -32,6 +32,12 @@
             body { background: white; padding: 0; }
             .container { box-shadow: none; padding: 0; max-width: 100%; border-top: none; border-bottom: none; }
             .no-print { display: none !important; }
+            
+            /* FIX: Print colors */
+            th, .title h2, .sig-box .label {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
         }
     </style>
 </head>
@@ -63,7 +69,8 @@
             </div>
             <div style="text-align: right;">
                 <p><span>Project</span> : {{ issue['project_name'] }}</p>
-                <p><span>Client</span> : {{ project['client_name'] if project else 'N/A' }}</p>
+                <!-- FIX: None-safe check for client name -->
+                <p><span>Client</span> : {{ (project['client_name'] if project else '') or 'N/A' }}</p>
             </div>
         </div>
 
@@ -78,15 +85,17 @@
                 </tr>
             </thead>
             <tbody>
-                {% set grand_total = 0 %}
+                <!-- FIX: Using namespace to calculate grand_total -->
+                {% set ns = namespace(grand_total=0) %}
                 {% for item in items %}
-                    {% set grand_total = grand_total + item['amount'] %}
+                    {% set ns.grand_total = ns.grand_total + (item['amount'] or 0) %}
                 <tr>
                     <td class="center">{{ loop.index }}</td>
                     <td>{{ item['material_name'] }}</td>
                     <td class="center">{{ item['quantity'] }}</td>
-                    <td class="amt">{{ "%.2f"|format(item['rate']) }}</td>
-                    <td class="amt">{{ "%.2f"|format(item['amount']) }}</td>
+                    <!-- FIX: inr filter -->
+                    <td class="amt">{{ (item['rate'] or 0) | inr }}</td>
+                    <td class="amt">{{ (item['amount'] or 0) | inr }}</td>
                 </tr>
                 {% else %}
                 <tr><td colspan="5" class="center">No items in this issue.</td></tr>
@@ -95,7 +104,8 @@
             <tfoot>
                 <tr style="background: #f9fbfc;">
                     <td colspan="4" style="text-align: right; font-weight: bold;">Total Amount:</td>
-                    <td class="amt" style="font-weight: bold;">₹ {{ "%.2f"|format(grand_total) }}</td>
+                    <!-- FIX: Correct total output -->
+                    <td class="amt" style="font-weight: bold;">₹ {{ ns.grand_total | inr }}</td>
                 </tr>
             </tfoot>
         </table>

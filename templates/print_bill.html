@@ -51,20 +51,28 @@
         <button onclick="window.print()" style="padding: 10px 20px; background: #176b38; color: white; border: none; font-weight: bold; border-radius: 5px; cursor: pointer; font-size: 16px;">🖨️ Print / Save as PDF</button>
     </div>
 
-    <!-- SMART LOGIC: Check if this is a new combined bill or old bill -->
-    {% set ns = namespace(is_combined=false) %}
+    <!-- SMART LOGIC: Namespace-ஐ யூஸ் பண்ணி டோட்டல் கணக்கிடுறோம் -->
+    {% set ns = namespace(sub_total=0.0, total_gst=0.0, is_combined=false) %}
     {% for item in items %}
+        {% set ns.sub_total = ns.sub_total + (item['basic_amount'] or 0) %}
+        {% set ns.total_gst = ns.total_gst + (item['gst_amount'] or 0) %}
         {% if (item['supply_rate'] or 0) > 0 or (item['erection_rate'] or 0) > 0 %}
             {% set ns.is_combined = true %}
         {% endif %}
     {% endfor %}
+
+    <!-- கிளையண்ட் GSTIN '33' (தமிழ்நாடு) இல்லைனா IGST வரும் -->
+    {% set is_intra_state = True %}
+    {% if client and client['gstin'] and not client['gstin'].startswith('33') %}
+        {% set is_intra_state = False %}
+    {% endif %}
 
     <div class="container">
         <div class="header">
             <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo">
             <div class="header-text">
                 <h1>GOMS ELECTRICALS PVT LTD</h1>
-                <p>#43 RK Nagar Firts Main Road, Mandaveli Post,Chennai Dist–600028 </p>
+                <p>#43, RK Nagar First Main Road,Mandaveli, Chennai Dist – 600028</p>
                 <p>GSTIN: 33AAACG3020F1ZF</p>
             </div>
         </div>
@@ -124,11 +132,7 @@
                 </tr>
             </thead>
             <tbody>
-                {% set sub_total = 0 %}
-                {% set total_gst = 0 %}
                 {% for item in items %}
-                    {% set sub_total = sub_total + item['basic_amount'] %}
-                    {% set total_gst = total_gst + item['gst_amount'] %}
                 <tr>
                     <td class="center">{{ loop.index }}</td>
                     <td>{{ item['description'] }}</td>
@@ -136,15 +140,15 @@
                     <td class="center">{{ item['quantity'] }}</td>
                     
                     {% if ns.is_combined %}
-                        <td class="amt">{{ "%.2f"|format(item['supply_rate'] or 0) }}</td>
-                        <td class="amt">{{ "%.2f"|format(item['erection_rate'] or 0) }}</td>
+                        <td class="amt">{{ (item['supply_rate'] or 0) | inr }}</td>
+                        <td class="amt">{{ (item['erection_rate'] or 0) | inr }}</td>
                     {% else %}
-                        <td class="amt">{{ "%.2f"|format(item['rate']) }}</td>
+                        <td class="amt">{{ item['rate'] | inr }}</td>
                     {% endif %}
                     
                     <td class="center">{{ item['gst_rate'] }}%</td>
-                    <td class="amt">{{ "%.2f"|format(item['basic_amount']) }}</td>
-                    <td class="amt">{{ "%.2f"|format(item['total_amount']) }}</td>
+                    <td class="amt">{{ item['basic_amount'] | inr }}</td>
+                    <td class="amt">{{ item['total_amount'] | inr }}</td>
                 </tr>
                 {% else %}
                 <tr><td colspan="9" class="center">No items in this bill.</td></tr>
@@ -156,19 +160,31 @@
             <table>
                 <tr>
                     <td style="text-align: right;">Taxable Value</td>
-                    <td class="amt">{{ "%.2f"|format(sub_total) }}</td>
+                    <td class="amt">{{ ns.sub_total | inr }}</td>
                 </tr>
+                
+                {% if is_intra_state %}
                 <tr>
                     <td style="text-align: right;">CGST</td>
-                    <td class="amt">{{ "%.2f"|format(total_gst / 2) }}</td>
+                    <td class="amt">{{ (ns.total_gst / 2) | inr }}</td>
                 </tr>
                 <tr>
                     <td style="text-align: right;">SGST</td>
-                    <td class="amt">{{ "%.2f"|format(total_gst / 2) }}</td>
+                    <td class="amt">{{ (ns.total_gst / 2) | inr }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td style="text-align: right;">IGST</td>
+                    <td class="amt">{{ ns.total_gst | inr }}</td>
+                </tr>
+                {% endif %}
+                <tr>
+                    <td style="text-align: right;">Round Off</td>
+                    <td class="amt">{{ round_off | inr }}</td>
                 </tr>
                 <tr class="grand-total">
                     <td style="text-align: right;">Grand Total</td>
-                    <td class="amt">₹ {{ "%.2f"|format(bill['total_value']) }}</td>
+                    <td class="amt">₹ {{ rounded_total | inr }}</td>
                 </tr>
             </table>
         </div>

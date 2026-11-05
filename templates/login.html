@@ -7,7 +7,7 @@
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body { display: flex; min-height: 100vh; background: #0a2240; }
-        
+
         /* Left Side - Branding (Desktop) */
         .left-panel { flex: 1; background: url('https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?q=80&w=2070&auto=format&fit=crop') no-repeat center center/cover; position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 40px; }
         .left-panel::before { content: ''; position: absolute; top:0; left:0; right:0; bottom:0; background: linear-gradient(to right, rgba(10,34,64,0.85), rgba(10,34,64,0.4)); }
@@ -15,18 +15,17 @@
         .brand-content h1 { font-size: 60px; font-weight: 900; letter-spacing: 5px; margin-bottom: 10px; }
         .brand-content h3 { font-size: 24px; font-weight: 400; letter-spacing: 2px; }
         .brand-content p { margin-top: 20px; font-size: 14px; letter-spacing: 3px; border-top: 1px solid rgba(255,255,255,0.3); padding-top: 20px; }
-        
+
         /* Right Side - Login Form (Desktop) */
         .right-panel { width: 50%; display: flex; justify-content: center; align-items: center; background: #f4f7f9; position: relative; }
-        /* Red diagonal accent */
         .right-panel::before { content: ''; position: absolute; top: 0; left: -50px; width: 100px; height: 100%; background: #e31e24; transform: skewX(-10deg); }
-        
+
         .login-card { background: white; padding: 50px 40px; border-radius: 12px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); width: 100%; max-width: 420px; z-index: 2; }
         .logo-area { text-align: center; margin-bottom: 30px; }
         .logo-area h2 { color: #0a2240; font-size: 28px; font-weight: 900; }
         .logo-area h2 span { color: #e31e24; }
         .logo-area p { color: #666; font-size: 14px; margin-top: 5px; }
-        
+
         .form-title { text-align: center; margin-bottom: 30px; }
         .form-title h3 { font-size: 22px; color: #0a2240; margin-bottom: 5px; }
         .form-title p { color: #666; font-size: 13px; }
@@ -35,52 +34,46 @@
         .input-group input { width: 100%; padding: 15px 15px 15px 45px; border: 1px solid #d1d9e2; border-radius: 8px; font-size: 15px; background: #f9fbfc; transition: 0.3s; }
         .input-group input:focus { outline: none; border-color: #0a2240; background: white; box-shadow: 0 0 0 3px rgba(10,34,64,0.1); }
         .input-icon { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #999; font-size: 18px; }
-        
+
         .btn-login { width: 100%; padding: 15px; background: #0a2240; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 10px; display: flex; justify-content: center; align-items: center; gap: 10px; }
         .btn-login:hover { background: #123a66; }
 
         .error-msg { background: #fff0f0; color: #b42318; padding: 12px; border-radius: 8px; font-size: 14px; margin-bottom: 20px; text-align: center; border: 1px solid #fecdca; }
-        
+
         .footer-text { text-align: center; margin-top: 30px; font-size: 12px; color: #999; position: relative; }
         .footer-text::before { content: ''; position: absolute; top: 50%; left: 0; width: 30%; height: 1px; background: #ddd; }
         .footer-text::after { content: ''; position: absolute; top: 50%; right: 0; width: 30%; height: 1px; background: #ddd; }
 
-        /* Hide the blue mobile banner on Desktop */
         .mobile-welcome-banner { display: none; }
 
         /* =========================================
-           MOBILE VIEW (Phone, Tablet) - Only changes here
+           MOBILE VIEW
            ========================================= */
         @media (max-width: 900px) {
-            body { 
-                flex-direction: column; 
-                /* Mobile-க்கு நீல நிற கிரேடியன்ட் பேக்ரவுண்ட் */
+            body {
+                flex-direction: column;
                 background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 50%, #7dd3fc 100%);
-                align-items: center; 
-                justify-content: center; 
+                align-items: center;
+                justify-content: center;
                 padding: 20px;
             }
-            /* Hide the left image panel */
             .left-panel { display: none; }
-            
-            .right-panel { 
-                width: 100%; 
-                height: auto; 
-                background: transparent; 
+
+            .right-panel {
+                width: 100%;
+                height: auto;
+                background: transparent;
             }
-            /* Hide the red diagonal line */
             .right-panel::before { display: none; }
-            
-            .login-card { 
-                padding: 30px 20px; 
-                border-radius: 20px; 
-                box-shadow: 0 15px 35px rgba(0,0,0,0.15); 
+
+            .login-card {
+                padding: 30px 20px;
+                border-radius: 20px;
+                box-shadow: 0 15px 35px rgba(0,0,0,0.15);
             }
 
-            /* Hide the default form title */
             .form-title { display: none; }
 
-            /* Show and style the Mobile Welcome Banner */
             .mobile-welcome-banner {
                 display: block;
                 background: linear-gradient(to right, #021b3a, #0a4b8f);
@@ -94,7 +87,7 @@
             .mobile-welcome-banner h2 { font-size: 24px; margin-bottom: 5px; color: white; }
             .mobile-welcome-banner h2 span { color: #ffc107; }
             .mobile-welcome-banner p { font-size: 13px; font-style: italic; color: #d1e0f0; }
-            
+
             .input-group input { background: white; }
         }
     </style>
@@ -116,13 +109,13 @@
                 <p>Electricals Pvt. Ltd.</p>
             </div>
 
-            <!-- இது மொபைல்ல மட்டும் தான் தெரியும் -->
+            <!-- Mobile-only banner -->
             <div class="mobile-welcome-banner">
                 <h2>Welcome <span>Back</span></h2>
                 <p>Login to access your ERP dashboard</p>
             </div>
-            
-            <!-- இது கம்ப்யூட்டர்ல மட்டும் தான் தெரியும் -->
+
+            <!-- Desktop-only title -->
             <div class="form-title">
                 <h3>Welcome Back</h3>
                 <p>Login to access your ERP dashboard</p>
@@ -132,14 +125,17 @@
                 <div class="error-msg">{{ error }}</div>
             {% endif %}
 
-            <form method="POST">
+            <form method="POST" autocomplete="on">
                 <div class="input-group">
                     <span class="input-icon">👤</span>
-                    <input type="text" name="username" placeholder="Username" required autofocus>
+                    <input type="text" name="username" placeholder="Username"
+                           autocomplete="username" autocapitalize="none"
+                           spellcheck="false" required autofocus>
                 </div>
                 <div class="input-group">
                     <span class="input-icon">🔒</span>
-                    <input type="password" name="password" placeholder="Password" required>
+                    <input type="password" name="password" placeholder="Password"
+                           autocomplete="current-password" required>
                 </div>
                 <button type="submit" class="btn-login">LOGIN ➔</button>
             </form>

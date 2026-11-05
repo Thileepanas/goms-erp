@@ -3,6 +3,11 @@
 {% block page_title %}Work Progress (Measurement Book){% endblock %}
 
 {% block content %}
+<style>
+    .inline-edit-form { display: flex; gap: 5px; align-items: center; }
+    .inline-edit-form input { padding: 4px; font-size: 12px; border: 1px solid #ccc; border-radius: 4px; width: 70px; }
+</style>
+
 <div class="card no-print" style="margin-bottom: 25px; background: #f9fbfc; border-left: 4px solid var(--primary-blue);">
     <form method="GET" style="display: flex; gap: 15px; align-items: center;">
         <label style="margin: 0; white-space: nowrap; font-weight: bold; font-size: 15px;">Select Project:</label>
@@ -17,13 +22,12 @@
 
 {% if selected_project %}
 <div class="no-print" style="text-align: right; margin-bottom: 15px;">
-    <!-- This is not a delete action, so keeping custom confirm is fine -->
     <a href="{{ url_for('generate_ra_bill', project_name=selected_project) }}" class="btn" style="background: #176b38; padding: 10px 20px; font-size: 15px;" onclick="return confirm('Generate RA Bills for all unbilled works?');">
         🧾 Generate RA Bills (Supply & Erection)
     </a>
 </div>
 
-<!-- 1. BOQ Work Summary Table -->
+<!-- 1. BOQ Work Summary Table (நீங்க தப்பா அடிச்சா இங்க தான் தெரியும்) -->
 <div class="card">
     <h3>BOQ Work Status (Supply & Erection)</h3>
     <div class="table-wrap">
@@ -53,7 +57,6 @@
                     <td class="no-print">
                         <form method="POST" style="display: flex; gap: 5px; align-items: center; flex-wrap: wrap;">
                             <input type="hidden" name="boq_item_id" value="{{ item.id }}">
-                            <!-- FIX: Added class to target via JS for default date -->
                             <input type="date" name="work_date" required class="work-date-input" style="padding: 4px; font-size: 12px; width: 110px;" title="Work Date">
                             <input type="number" name="qty_supply" step="0.01" max="{{ item.balance_supply }}" placeholder="Sup Qty" style="padding: 4px; font-size: 12px; width: 70px;" title="Supply Qty">
                             <input type="number" name="qty_erection" step="0.01" max="{{ item.balance_erection }}" placeholder="Ere Qty" style="padding: 4px; font-size: 12px; width: 70px;" title="Erection Qty">
@@ -69,7 +72,7 @@
     </div>
 </div>
 
-<!-- 2. Work Progress History (Dates & Entries) -->
+<!-- 2. Work Progress History (இங்க தான் நாம Edit / Delete பண்ணப் போறோம்) -->
 <div class="card">
     <h3>Work Progress History (Dates)</h3>
     <div class="table-wrap">
@@ -81,19 +84,39 @@
                     <th>Supply Qty</th>
                     <th>Erection Qty</th>
                     <th>Remarks</th>
+                    <th class="no-print" style="text-align: center; width: 150px;">Action</th> <!-- புது காலம் -->
                 </tr>
             </thead>
             <tbody>
                 {% for h in work_history %}
                 <tr>
-                    <td><strong>{{ h['work_date'] | dateformat }}</strong></td>
-                    <td>{{ h['material_name'] }}</td>
-                    <td style="color: #176b38;">{{ h['qty_supply'] }}</td>
-                    <td style="color: #0d47a1;">{{ h['qty_erection'] }}</td>
-                    <td>{{ h['remarks'] or '-' }}</td>
+                    <!-- FIX: Billed ஆகிட்டதா செக் பண்றோம் -->
+                    {% if h['is_billed_supply'] == 1 or h['is_billed_erection'] == 1 %}
+                        <td><strong>{{ h['work_date'] | dateformat }}</strong></td>
+                        <td>{{ h['material_name'] }}</td>
+                        <td style="color: #176b38;">{{ h['qty_supply'] }}</td>
+                        <td style="color: #0d47a1;">{{ h['qty_erection'] }}</td>
+                        <td>{{ h['remarks'] or '-' }}</td>
+                        <td class="no-print" style="text-align: center;">
+                            <span style="background: #f1f5f9; color: #666; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">🔒 Billed</span>
+                        </td>
+                    {% else %}
+                        <!-- Billed ஆகலைனா Edit / Delete ஆப்ஷன் தர்றோம் -->
+                        <form method="POST" action="{{ url_for('edit_work_progress', id=h['id'], project=selected_project) }}">
+                            <td><input type="date" name="work_date" value="{{ h['work_date'] }}" required style="width: 110px; padding: 4px; font-size: 12px; border: 1px solid #ccc; border-radius: 4px;"></td>
+                            <td>{{ h['material_name'] }}</td>
+                            <td><input type="number" name="qty_supply" value="{{ h['qty_supply'] }}" step="0.01" style="width: 70px; padding: 4px; font-size: 12px; border: 1px solid #ccc; border-radius: 4px;"></td>
+                            <td><input type="number" name="qty_erection" value="{{ h['qty_erection'] }}" step="0.01" style="width: 70px; padding: 4px; font-size: 12px; border: 1px solid #ccc; border-radius: 4px;"></td>
+                            <td><input type="text" name="remarks" value="{{ h['remarks'] or '' }}" style="width: 120px; padding: 4px; font-size: 12px; border: 1px solid #ccc; border-radius: 4px;"></td>
+                            <td class="no-print" style="text-align: center; white-space: nowrap;">
+                                <button type="submit" class="btn" style="padding: 4px 8px; font-size: 12px; background: #ffc107; color: black;">💾 Save</button>
+                                <a href="{{ url_for('delete_work_progress', id=h['id'], project=selected_project) }}" class="btn" style="padding: 4px 8px; font-size: 12px; background: #e31e24;">❌ Del</a>
+                            </td>
+                        </form>
+                    {% endif %}
                 </tr>
                 {% else %}
-                <tr><td colspan="5" style="text-align: center;">No work updates found.</td></tr>
+                <tr><td colspan="6" style="text-align: center;">No work updates found.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

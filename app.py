@@ -183,8 +183,6 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT, supplier_gstin TEXT, supplier_name TEXT, invoice_number TEXT,
         invoice_date TEXT, total_value REAL DEFAULT 0, match_status TEXT DEFAULT 'Unmatched'
     )""")
-    
-    # FIX: Indentation corrected
     conn.execute("CREATE TABLE IF NOT EXISTS tenders (id INTEGER PRIMARY KEY AUTOINCREMENT, tender_no TEXT NOT NULL, client_name TEXT NOT NULL, tender_date TEXT, submission_date TEXT, status TEXT DEFAULT 'Pending', estimated_value REAL DEFAULT 0)")
     conn.execute("CREATE TABLE IF NOT EXISTS tender_items (id INTEGER PRIMARY KEY AUTOINCREMENT, tender_id INTEGER NOT NULL, description TEXT, unit TEXT, quantity REAL DEFAULT 0, rate REAL DEFAULT 0, amount REAL DEFAULT 0)")
 
@@ -1829,7 +1827,7 @@ def delete_poq(id):
 
 
 # ------------------------------------------------------------------
-# WORK PROGRESS
+# WORK PROGRESS (UPDATED WITH EDIT/DELETE)
 # ------------------------------------------------------------------
 @app.route("/work_progress", methods=["GET", "POST"])
 def work_progress():
@@ -1888,7 +1886,6 @@ def work_progress():
                 "erection_rate": item['erection_rate'] or 0,
             })
 
-        # FIX: Include id, is_billed_supply, is_billed_erection for history table
         work_history_raw = conn.execute("""
             SELECT wp.id, wp.work_date, bq.material_name, wp.qty_supply, wp.qty_erection, wp.remarks, wp.is_billed_supply, wp.is_billed_erection 
             FROM work_progress wp
@@ -1929,40 +1926,42 @@ def delete_work_progress(id):
     return redirect(url_for("work_progress", project=project_name))
 
 
-@app.route("/work_progress/edit/<int:id>", methods=["POST"])
+@app.route("/work_progress/edit/<int:id>", methods=["GET", "POST"])
 def edit_work_progress(id):
     if not session.get("username"):
         return redirect(url_for("login"))
-    project_name = request.args.get("project", "")
-    
+        
     conn = get_db()
     wp = conn.execute("SELECT * FROM work_progress WHERE id = ?", (id,)).fetchone()
     
     if not wp:
         flash("Entry not found!", "error")
         conn.close()
-        return redirect(url_for("work_progress", project=project_name))
+        return redirect(url_for("work_progress"))
         
     if wp['is_billed_supply'] == 1 or wp['is_billed_erection'] == 1:
-        flash("Cannot edit: This work is already billed.", "error")
+        flash("Cannot edit: This work is already billed in an RA Bill.", "error")
         conn.close()
-        return redirect(url_for("work_progress", project=project_name))
+        return redirect(url_for("work_progress", project=wp['project_name']))
 
-    try:
-        new_supply = float(request.form.get("qty_supply") or 0)
-        new_erection = float(request.form.get("qty_erection") or 0)
+    if request.method == "POST":
+        work_date = request.form.get("work_date")
+        qty_supply = float(request.form.get("qty_supply") or 0)
+        qty_erection = float(request.form.get("qty_erection") or 0)
         remarks = request.form.get("remarks", "")
         
         conn.execute("""
-            UPDATE work_progress SET qty_supply=?, qty_erection=?, remarks=? WHERE id=?
-        """, (new_supply, new_erection, remarks, id))
+            UPDATE work_progress SET work_date=?, qty_supply=?, qty_erection=?, remarks=? WHERE id=?
+        """, (work_date, qty_supply, qty_erection, remarks, id))
         conn.commit()
+        conn.close()
         flash("Work progress updated successfully!", "success")
-    except Exception as e:
-        flash(f"Error: {str(e)}", "error")
-        
+        return redirect(url_for("work_progress", project=wp['project_name']))
+
+    boq_item = conn.execute("SELECT * FROM poq WHERE id = ?", (wp['boq_item_id'],)).fetchone()
     conn.close()
-    return redirect(url_for("work_progress", project=project_name))
+    
+    return render_template("edit_work_progress.html", wp=wp, boq_item=boq_item)
 
 
 @app.route("/generate_ra_bill/<project_name>")

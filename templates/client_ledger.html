@@ -4,16 +4,6 @@
 
 {% block content %}
 <style>
-    @media print {
-        body * { visibility: hidden; }
-        .print-section, .print-section * { visibility: visible; }
-        .print-section { position: absolute; left: 0; top: 0; width: 100%; }
-        .no-print { display: none !important; }
-        .sidebar, .topbar { display: none; }
-        .card { box-shadow: none; border: none; padding: 0; }
-        th { background: #f1f5f9 !important; color: #000 !important; -webkit-print-color-adjust: exact; }
-        table, th, td { border: 1px solid #000 !important; }
-    }
     .tally-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
     .tally-table th, .tally-table td { border: 1px solid #999; padding: 8px; }
     .tally-table th { background: #f1f5f9; font-weight: bold; text-align: center; }
@@ -22,19 +12,23 @@
     .tally-header h2 { margin: 0; font-size: 18px; color: #0a2240; }
     .tally-header h3 { margin: 5px 0; font-size: 16px; color: #333; }
     .tally-header p { margin: 0; font-size: 13px; color: #666; }
+    
+    @media print {
+        .d-print-block { display: block !important; }
+    }
 </style>
 
-<div class="no-print" style="display: flex; border-bottom: 2px solid #ddd; margin-bottom: 20px;">
+<div class="no-print" style="display: flex; border-bottom: 2px solid #ddd; margin-bottom: 20px; overflow-x: auto; white-space: nowrap;">
     <a href="{{ url_for('accounts') }}" style="padding: 12px 20px; text-decoration: none; font-weight: bold; color: #666;">Project P&L</a>
     <a href="{{ url_for('client_ledger') }}" style="padding: 12px 20px; text-decoration: none; font-weight: bold; color: var(--primary-blue); border-bottom: 3px solid var(--accent-red);">Client Ledger</a>
     <a href="{{ url_for('vendor_ledger') }}" style="padding: 12px 20px; text-decoration: none; font-weight: bold; color: #666;">Vendor Ledger</a>
 </div>
 
 <div class="card no-print" style="background: #f9fbfc;">
-    <form method="GET" style="display: flex; gap: 15px; align-items: center; justify-content: space-between;">
-        <div style="display: flex; align-items: center; gap: 15px;">
+    <form method="GET" style="display: flex; gap: 15px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 15px; width: 100%; max-width: 500px;">
             <label style="margin: 0; white-space: nowrap;">Select Client:</label>
-            <select name="client" onchange="this.form.submit()" style="padding: 10px; border-radius: 6px; width: 300px;">
+            <select name="client" onchange="this.form.submit()" style="padding: 10px; border-radius: 6px; width: 100%;">
                 <option value="">-- Choose Client --</option>
                 {% for c in clients %}
                     <option value="{{ c['name'] }}" {% if c['name'] == selected_client %}selected{% endif %}>{{ c['name'] }}</option>
@@ -50,7 +44,7 @@
 {% if selected_client %}
 <div class="print-section card" style="padding: 30px; background: white;">
     <div class="tally-header">
-        <h2>Goms Electricals Pvt. Ltd - 2025-2026</h2>
+        <h2>GOMS Electricals Pvt. Ltd - 2025-2026</h2>
         <h3>{{ selected_client }}</h3>
         <p>Ledger Account</p>
     </div>
@@ -70,18 +64,21 @@
                 <tr>
                     <td>01-Apr-2025</td>
                     <td>To Opening Balance</td>
-                    <td class="amount">{{ "%.2f"|format(opening_balance) }}</td>
+                    <!-- FIX: inr filter -->
+                    <td class="amount">{{ (opening_balance or 0) | inr }}</td>
                     <td class="amount"></td>
-                    <td class="amount">{{ "%.2f"|format(opening_balance) }}</td>
+                    <td class="amount">{{ (opening_balance or 0) | inr }}</td>
                 </tr>
                 
                 {% for t in transactions %}
                 <tr>
-                    <td style="text-align: center;">{{ t.date }}</td>
+                    <!-- FIX: dateformat applied -->
+                    <td style="text-align: center;">{{ t.date | dateformat }}</td>
                     <td>{{ t.particulars }}</td>
-                    <td class="amount">{% if t.debit > 0 %}{{ "%.2f"|format(t.debit) }}{% endif %}</td>
-                    <td class="amount">{% if t.credit > 0 %}{{ "%.2f"|format(t.credit) }}{% endif %}</td>
-                    <td class="amount">{{ "%.2f"|format(t.balance) }}</td>
+                    <!-- FIX: None-safe checks and inr filter -->
+                    <td class="amount">{% if (t.debit or 0) > 0 %}{{ t.debit | inr }}{% endif %}</td>
+                    <td class="amount">{% if (t.credit or 0) > 0 %}{{ t.credit | inr }}{% endif %}</td>
+                    <td class="amount">{{ (t.balance or 0) | inr }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -89,22 +86,24 @@
                 <tr style="background: #f9fbfc;">
                     <td></td>
                     <td style="text-align: right; font-weight: bold;">Total</td>
-                    <td class="amount">{{ "%.2f"|format(total_debit) }}</td>
-                    <td class="amount">{{ "%.2f"|format(total_credit) }}</td>
+                    <td class="amount">{{ (total_debit or 0) | inr }}</td>
+                    <td class="amount">{{ (total_credit or 0) | inr }}</td>
                     <td></td>
                 </tr>
                 <tr>
                     <td></td>
                     <td style="text-align: right; font-weight: bold;">By Closing Balance</td>
-                    <td class="amount">{% if closing_balance < 0 %}{{ "%.2f"|format(closing_balance|abs) }}{% endif %}</td>
-                    <td class="amount">{% if closing_balance > 0 %}{{ "%.2f"|format(closing_balance) }}{% endif %}</td>
+                    <!-- FIX: Safely handle closing balance -->
+                    <td class="amount">{% if (closing_balance or 0) < 0 %}{{ (closing_balance | abs) | inr }}{% endif %}</td>
+                    <td class="amount">{% if (closing_balance or 0) > 0 %}{{ closing_balance | inr }}{% endif %}</td>
                     <td></td>
                 </tr>
                 <tr>
                     <td></td>
                     <td></td>
-                    <td class="amount" style="border-top: 2px solid #000; border-bottom: 2px solid #000;">{{ "%.2f"|format(total_debit + (closing_balance|abs if closing_balance < 0 else 0)) }}</td>
-                    <td class="amount" style="border-top: 2px solid #000; border-bottom: 2px solid #000;">{{ "%.2f"|format(total_credit + (closing_balance if closing_balance > 0 else 0)) }}</td>
+                    <!-- FIX: Safe calculations and inr -->
+                    <td class="amount" style="border-top: 2px solid #000; border-bottom: 2px solid #000;">{{ ((total_debit or 0) + ((closing_balance|abs) if (closing_balance or 0) < 0 else 0)) | inr }}</td>
+                    <td class="amount" style="border-top: 2px solid #000; border-bottom: 2px solid #000;">{{ ((total_credit or 0) + ((closing_balance) if (closing_balance or 0) > 0 else 0)) | inr }}</td>
                     <td></td>
                 </tr>
             </tfoot>

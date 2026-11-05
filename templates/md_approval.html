@@ -21,14 +21,16 @@
                 <tr>
                     <td><strong>{{ p['invoice_number'] }}</strong></td>
                     <td>{{ p['supplier_name'] }}</td>
-                    <td>{{ p['invoice_date'] }}</td>
-                    <td style="font-weight: bold; color: #0d47a1;">{{ "%.2f"|format(p['total_amount']) }}</td>
+                    <!-- FIX: dateformat applied -->
+                    <td>{{ p['invoice_date'] | dateformat }}</td>
+                    <!-- FIX: inr filter -->
+                    <td style="font-weight: bold; color: #0d47a1;">{{ (p['total_amount'] or 0) | inr }}</td>
                     <td class="no-print">
                         <a href="{{ url_for('md_approve', id=p['id']) }}" class="btn" style="background: #176b38; padding: 6px 12px; font-size: 12px;" onclick="return confirm('Approve this bill for payment?');">✅ Approve</a>
                     </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="5" style="text-align: center;">No pending approvals.</td></tr>
+                <tr><td colspan="5" style="text-align: center; padding: 20px;">No pending approvals.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -52,11 +54,11 @@
                 <tr>
                     <td>{{ p['invoice_number'] }}</td>
                     <td>{{ p['supplier_name'] }}</td>
-                    <td style="font-weight: bold;">{{ "%.2f"|format(p['total_amount']) }}</td>
+                    <td style="font-weight: bold;">{{ (p['total_amount'] or 0) | inr }}</td>
                     <td><span style="color: green; font-weight: bold;">Approved ✅</span></td>
                 </tr>
                 {% else %}
-                <tr><td colspan="4" style="text-align: center;">No approved bills yet.</td></tr>
+                <tr><td colspan="4" style="text-align: center; padding: 20px;">No approved bills yet.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

@@ -22,14 +22,13 @@
     .loss { color: #e31e24; font-weight: bold; }
 </style>
 
-<!-- Summary KPI Cards -->
 <div class="kpi-grid">
     <div class="kpi-card bg-plan">
         <h4>Total Client Value (Revenue)</h4>
         <h2>₹ {{ total_client_value | inr }}</h2>
     </div>
     <div class="kpi-card bg-actual">
-        <h4>Total Actual Cost Incurred</h4>
+        <h4>Actual Incurred (Purchase + Exp)</h4>
         <h2>₹ {{ total_actual_cost | inr }}</h2>
     </div>
     <div class="kpi-card bg-forecast">
@@ -48,7 +47,8 @@
                     <th>Qty</th>
                     <th>Client Value (₹)</th>
                     <th>Plan Cost (Target) (₹)</th>
-                    <th>Actual Cost (₹)</th>
+                    <th>Actual Purchase (₹)</th>
+                    <th>Actual Expense (₹)</th>
                     <th>Forecast Cost (₹)</th>
                     <th>Projected Total Cost (₹)</th>
                     <th>Projected Profit (₹)</th>
@@ -61,13 +61,14 @@
                     <td style="text-align: center;">{{ row.qty }}</td>
                     <td>{{ row.client_value | inr }}</td>
                     <td class="bg-plan">{{ row.plan_cost | inr }}</td>
-                    <td class="bg-actual">{{ row.actual_cost | inr }}</td>
+                    <td class="bg-actual">{{ row.actual_pur | inr }}</td>
+                    <td class="bg-actual">{{ row.actual_acc | inr }}</td>
                     <td class="bg-forecast">{{ row.forecast_cost | inr }}</td>
                     <td style="font-weight: bold;">{{ row.total_projected_cost | inr }}</td>
                     <td class="{% if row.projected_profit >= 0 %}profit{% else %}loss{% endif %}">{{ row.projected_profit | inr }}</td>
                 </tr>
                 {% else %}
-                <tr><td colspan="8" style="text-align: center;">No BOQ items found.</td></tr>
+                <tr><td colspan="9" style="text-align: center;">No BOQ items found.</td></tr>
                 {% endfor %}
             </tbody>
             <tfoot>
@@ -75,7 +76,8 @@
                     <td colspan="2" style="text-align: right;">GRAND TOTAL</td>
                     <td>₹ {{ total_client_value | inr }}</td>
                     <td>₹ {{ total_plan_cost | inr }}</td>
-                    <td>₹ {{ total_actual_cost | inr }}</td>
+                    <td>₹ {{ total_actual_pur | inr }}</td>
+                    <td>₹ {{ total_actual_acc | inr }}</td>
                     <td>₹ {{ total_forecast_cost | inr }}</td>
                     <td>₹ {{ total_projected_cost | inr }}</td>
                     <td class="{% if projected_profit >= 0 %}profit{% else %}loss{% endif %}">₹ {{ projected_profit | inr }}</td>

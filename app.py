@@ -138,7 +138,7 @@ def init_db():
     conn.execute("CREATE TABLE IF NOT EXISTS work_progress (id INTEGER PRIMARY KEY AUTOINCREMENT, project_name TEXT NOT NULL, boq_item_id INTEGER NOT NULL, work_date TEXT, qty_done REAL DEFAULT 0, remarks TEXT, is_billed INTEGER DEFAULT 0)")
     conn.execute("CREATE TABLE IF NOT EXISTS gstr2b_data (id INTEGER PRIMARY KEY AUTOINCREMENT, supplier_gstin TEXT, supplier_name TEXT, invoice_number TEXT, invoice_date TEXT, total_value REAL DEFAULT 0, match_status TEXT DEFAULT 'Unmatched')")
     conn.execute("CREATE TABLE IF NOT EXISTS tenders (id INTEGER PRIMARY KEY AUTOINCREMENT, tender_no TEXT NOT NULL, client_name TEXT NOT NULL, tender_date TEXT, submission_date TEXT, status TEXT DEFAULT 'Pending', estimated_value REAL DEFAULT 0)")
-    conn.execute("CREATE TABLE IF NOT EXISTS tender_items (id INTEGER PRIMARY KEY AUTOINCREMENT, tender_id INTEGER NOT NULL, description TEXT, unit TEXT, quantity REAL DEFAULT 0, rate REAL DEFAULT 0, amount REAL DEFAULT 0)")
+    conn.execute("CREATE TABLE IF NOT EXISTS tender_items (id INTEGER PRIMARY KEY AUTOINCREMENT, tender_id INTEGER NOT NULL, description TEXT, unit TEXT, quantity REAL DEFAULT 0, rate REAL DEFAULT 0, supply_rate REAL DEFAULT 0, erection_rate REAL DEFAULT 0, amount REAL DEFAULT 0)")
     conn.commit()
 
     def add_column(table, column, col_type):
@@ -170,7 +170,9 @@ def init_db():
     add_column("po", "gm_approval", "TEXT DEFAULT 'Pending'")
     add_column("poq", "company_supply_rate", "REAL DEFAULT 0")
     add_column("poq", "company_erection_rate", "REAL DEFAULT 0")
-    add_column("accounts", "bill_no", "TEXT") # NEW for Payment linking
+    add_column("accounts", "bill_no", "TEXT")
+    add_column("tender_items", "supply_rate", "REAL DEFAULT 0")
+    add_column("tender_items", "erection_rate", "REAL DEFAULT 0")
 
     indexes = [
         "CREATE INDEX IF NOT EXISTS idx_purchases_project ON purchases(project_name)",
@@ -359,14 +361,32 @@ def tender_items(id):
     if not session.get("username"): return redirect(url_for("login"))
     conn = get_db()
     if request.method == "POST":
-        descs = request.form.getlist("description[]"); units = request.form.getlist("unit[]"); qtys = request.form.getlist("quantity[]"); rates = request.form.getlist("rate[]")
+        descs = request.form.getlist("description[]")
+        qtys = request.form.getlist("quantity[]")
+        units = request.form.getlist("unit[]")
+        sup_rates = request.form.getlist("supply_rate[]")
+        ere_rates = request.form.getlist("erection_rate[]")
+        
         for i in range(len(descs)):
             if descs[i].strip():
-                q, r = float(qtys[i]) if qtys[i] else 0, float(rates[i]) if rates[i] else 0
-                conn.execute("INSERT INTO tender_items (tender_id, description, unit, quantity, rate, amount) VALUES (?, ?, ?, ?, ?, ?)", (id, descs[i], units[i], q, r, round(q*r, 2)))
-        total = conn.execute("SELECT SUM(amount) FROM tender_items WHERE tender_id=?", (id,)).fetchone()[0] or 0
-        conn.execute("UPDATE tenders SET estimated_value=? WHERE id=?", (total, id))
-        conn.commit(); flash("Items added!", "success"); conn.close(); return redirect(url_for("tender_items", id=id))
+                q = float(qtys[i] or 0)
+                s_rate = float(sup_rates[i] or 0)
+                e_rate = float(ere_rates[i] or 0)
+                
+                total_rate = s_rate + e_rate
+                amt = round(q * total_rate, 2)
+                
+                conn.execute("""
+                    INSERT INTO tender_items (tender_id, description, unit, quantity, rate, supply_rate, erection_rate, amount) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (id, descs[i], units[i], q, total_rate, s_rate, e_rate, amt))
+                
+        total = conn.execute("SELECT SUM(amount) FROM tender_items WHERE tender_id = ?", (id,)).fetchone()[0] or 0
+        conn.execute("UPDATE tenders SET estimated_value = ? WHERE id = ?", (total, id))
+        conn.commit()
+        flash("Items added!", "success"); conn.close()
+        return redirect(url_for("tender_items", id=id))
+        
     t = conn.execute("SELECT * FROM tenders WHERE id=?", (id,)).fetchone()
     items = conn.execute("SELECT * FROM tender_items WHERE tender_id=?", (id,)).fetchall()
     conn.close(); return render_template("tender_items.html", tender=t, items=items)
@@ -378,15 +398,26 @@ def upload_tender_excel(id):
     if not file or file.filename == '': flash("No file selected!", "error"); return redirect(url_for("tender_items", id=id))
     try:
         df = pd.read_excel(file)
-        req_cols = ['Description', 'Unit', 'Quantity', 'Rate']
+        # FIX: Required columns
+        req_cols = ['Description', 'Quantity', 'Unit', 'Supply Rate', 'Erection Rate']
         if not all(col in df.columns for col in req_cols):
             flash(f"Invalid format. Need: {', '.join(req_cols)}", "error"); return redirect(url_for("tender_items", id=id))
+            
         conn = get_db()
         for index, row in df.iterrows():
             if pd.notna(row['Description']) and str(row['Description']).strip() != "":
                 q = float(row['Quantity']) if pd.notna(row['Quantity']) else 0
-                r = float(row['Rate']) if pd.notna(row['Rate']) else 0
-                conn.execute("INSERT INTO tender_items (tender_id, description, unit, quantity, rate, amount) VALUES (?, ?, ?, ?, ?, ?)", (id, str(row['Description']).strip(), str(row['Unit']).strip(), q, r, round(q*r, 2)))
+                s_rate = float(row['Supply Rate']) if pd.notna(row['Supply Rate']) else 0
+                e_rate = float(row['Erection Rate']) if pd.notna(row['Erection Rate']) else 0
+                
+                total_rate = s_rate + e_rate
+                amt = round(q * total_rate, 2)
+                
+                conn.execute("""
+                    INSERT INTO tender_items (tender_id, description, unit, quantity, rate, supply_rate, erection_rate, amount) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (id, str(row['Description']).strip(), str(row['Unit']).strip(), q, total_rate, s_rate, e_rate, amt))
+                
         total = conn.execute("SELECT SUM(amount) FROM tender_items WHERE tender_id=?", (id,)).fetchone()[0] or 0
         conn.execute("UPDATE tenders SET estimated_value=? WHERE id=?", (total, id))
         conn.commit(); conn.close(); flash("Excel uploaded!", "success")
@@ -396,9 +427,23 @@ def upload_tender_excel(id):
 @app.route("/tender/item/edit/<int:item_id>", methods=["POST"])
 def edit_tender_item(item_id):
     if not session.get("username"): return redirect(url_for("login"))
-    tid = request.form.get("tender_id"); d = request.form.get("description"); u = request.form.get("unit"); q = float(request.form.get("quantity") or 0); r = float(request.form.get("rate") or 0)
+    tid = request.form.get("tender_id")
+    d = request.form.get("description")
+    u = request.form.get("unit")
+    q = float(request.form.get("quantity") or 0)
+    s_rate = float(request.form.get("supply_rate") or 0)
+    e_rate = float(request.form.get("erection_rate") or 0)
+    
+    total_rate = s_rate + e_rate
+    amt = round(q * total_rate, 2)
+
     conn = get_db()
-    conn.execute("UPDATE tender_items SET description=?, unit=?, quantity=?, rate=?, amount=? WHERE id=?", (d, u, q, r, round(q*r, 2), item_id))
+    conn.execute("""
+        UPDATE tender_items 
+        SET description=?, unit=?, quantity=?, rate=?, supply_rate=?, erection_rate=?, amount=? 
+        WHERE id=?
+    """, (d, u, q, total_rate, s_rate, e_rate, amt, item_id))
+    
     total = conn.execute("SELECT SUM(amount) FROM tender_items WHERE tender_id=?", (tid,)).fetchone()[0] or 0
     conn.execute("UPDATE tenders SET estimated_value=? WHERE id=?", (total, tid))
     conn.commit(); conn.close(); flash("Item updated!", "success")
@@ -407,11 +452,21 @@ def edit_tender_item(item_id):
 @app.route("/tender/sample_excel")
 def download_tender_sample():
     if not session.get("username"): return redirect(url_for("login"))
-    df = pd.DataFrame({'Description': ['Sample Item'], 'Unit': ['Nos'], 'Quantity': [10], 'Rate': [100]})
+    
+    df = pd.DataFrame({
+        'Description': ['Sample Item 1'], 
+        'Quantity': [10], 
+        'Unit': ['Nos'], 
+        'Supply Rate': [80], 
+        'Erection Rate': [20]
+    })
+    
     out = io.BytesIO()
-    with pd.ExcelWriter(out, engine='openpyxl') as writer: df.to_excel(writer, index=False)
+    with pd.ExcelWriter(out, engine='openpyxl') as writer: 
+        df.to_excel(writer, index=False)
     out.seek(0)
-    return send_file(out, download_name="Sample_BOQ.xlsx", as_attachment=True)
+
+    return send_file(out, download_name="New_GOMS_BOQ.xlsx", as_attachment=True)
 
 @app.route("/tender/update_status/<int:id>/<status>")
 def update_tender_status(id, status):
@@ -427,12 +482,17 @@ def convert_tender(id):
         if not conn.execute("SELECT id FROM parties WHERE party_name=? AND party_type='Debtor'", (t['client_name'],)).fetchone():
             flash(f"Client '{t['client_name']}' not found in Party Master. Create first.", "error")
             conn.close(); return redirect(url_for("parties", new_name=t['client_name']))
+        
         if not conn.execute("SELECT id FROM projects WHERE project_name=?", (t['tender_no'],)).fetchone():
             conn.execute("INSERT INTO projects (project_name, client_name, project_value, status) VALUES (?, ?, ?, 'In Progress')", (t['tender_no'], t['client_name'], t['estimated_value']))
+            
+            # FIX: Indentation corrected for the loop block
             for item in conn.execute("SELECT * FROM tender_items WHERE tender_id=?", (id,)).fetchall():
-                conn.execute("INSERT INTO poq (project_name, material_name, unit, quantity, rate, amount, supply_rate, erection_rate) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (t['tender_no'], item['description'], item['unit'], item['quantity'], item['rate'], item['amount'], item['rate'], 0))
+                conn.execute("INSERT INTO poq (project_name, material_name, unit, quantity, rate, amount, supply_rate, erection_rate) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (t['tender_no'], item['description'], item['unit'], item['quantity'], item['rate'], item['amount'], item['supply_rate'], item['erection_rate']))
+            
             conn.commit(); flash("Tender converted to Project!", "success")
-        else: flash("Project already exists!", "error")
+        else: 
+            flash("Project already exists!", "error")
     conn.close(); return redirect(url_for("tenders"))
 
 # ------------------------------------------------------------------

@@ -1,0 +1,627 @@
+{% extends "base.html" %}
+
+{% block title %}Sales / Purchase Entry{% endblock %}
+{% block page_title %}Sales / Purchase Entry{% endblock %}
+
+{% block content %}
+<style>
+    /* Tabs Style */
+    .tabs { display: flex; border-bottom: 2px solid #ddd; margin-bottom: 20px; flex-wrap: wrap; }
+    .tab-btn { padding: 12px 20px; cursor: pointer; font-weight: bold; border: none; background: none; font-size: 15px; color: #666; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: 0.3s; }
+    .tab-btn.active { color: var(--primary-blue); border-bottom: 3px solid var(--accent-red); }
+    .tab-btn:hover { color: var(--primary-blue); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; animation: fadeIn 0.4s; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    /* Common Card & Headings */
+    .card { background: #f9fbfc; padding: 20px; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border-top: 4px solid #0d47a1; }
+    .section-title { color: #0a2240; font-size: 20px; font-weight: bold; border-bottom: 2px solid #e31e24; display: inline-block; padding-bottom: 5px; margin-bottom: 20px; margin-top: 0; }
+    
+    /* White Box Container */
+    .white-box { background: white; padding: 15px; border-radius: 6px; border: 1px solid #ddd; margin-bottom: 15px; }
+
+    /* Table Input Sizes */
+    .item-desc { width: 100%; box-sizing: border-box; font-size: 13px; font-weight: 600; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+    .item-hsn { width: 100%; box-sizing: border-box; font-size: 13px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+    .item-qty { width: 100%; box-sizing: border-box; font-size: 13px; padding: 8px; text-align: center; border: 1px solid #ccc; border-radius: 4px; -moz-appearance: textfield; }
+    .item-qty::-webkit-outer-spin-button, .item-qty::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .item-rate { width: 100%; box-sizing: border-box; font-size: 13px; padding: 8px; text-align: right; border: 1px solid #ccc; border-radius: 4px; }
+    .item-gst { width: 100%; box-sizing: border-box; font-size: 13px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+    .item-total { font-size: 15px; font-weight: bold; color: #0d47a1; text-align: right; padding: 10px; }
+
+    /* Buttons */
+    .btn-add-row { background: #176b38; color: white; border: none; padding: 8px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 16px; margin-right: 5px; text-decoration: none;}
+    .btn-add-row:hover { background: #11522a; }
+    .btn-remove { background: #e31e24; color: white; border: none; padding: 8px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 14px; text-decoration: none;}
+    .btn-remove:hover { background: #b81319; }
+    .btn-save { background: #0d47a1; color: white; margin-top: 0; width: 100%; font-size: 16px; padding: 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    .btn-save:hover { background: #0a387f; }
+
+    table th, table td { vertical-align: middle; }
+    .table-wrap { overflow-x: auto; width: 100%; }
+
+    /* Form Grid */
+    .form-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+    .form-grid label { font-weight: bold; font-size: 13px; margin-bottom: 5px; display: block; color: #333; }
+    .form-grid input, .form-grid select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; box-sizing: border-box; }
+
+    .action-btns { display: flex; gap: 5px; justify-content: center; align-items: center; white-space: nowrap; }
+
+    /* Date Filter Box */
+    .date-filter-box { display: flex; gap: 10px; margin-bottom: 15px; align-items: center; background: #eef2f5; padding: 10px; border-radius: 6px; flex-wrap: nowrap; overflow-x: auto; }
+    .date-filter-box label { font-weight: bold; margin: 0; white-space: nowrap; }
+    .date-filter-box input[type="date"] { width: 140px; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+    .date-filter-box button { padding: 6px 15px; white-space: nowrap; }
+
+    /* Bill Summary Box */
+    .bill-summary { width: 40%; margin-left: auto; border: 1px solid #ccc; border-radius: 6px; background: white; overflow: hidden; }
+    .bill-summary table { margin: 0; width: 100%; border-collapse: collapse; }
+    .bill-summary th, .bill-summary td { padding: 8px 15px; font-size: 14px; border-bottom: 1px solid #eee; text-align: right; }
+    .bill-summary .summary-grand { background: #0a2240; color: white; font-size: 16px; font-weight: bold; border-bottom: none; }
+
+    /* ========== MOBILE FIX ========== */
+    @media (max-width: 768px) {
+        .form-grid { grid-template-columns: 1fr !important; }
+        .bill-summary { width: 100% !important; margin-left: 0 !important; }
+        .tab-btn { font-size: 13px; padding: 10px 12px; }
+    }
+</style>
+
+<!-- Project Selector -->
+<div class="card no-print" style="margin-bottom: 25px; border-top: none; border-left: 4px solid var(--primary-blue); box-shadow: none;">
+    <form method="GET" style="display: flex; gap: 15px; align-items: center;">
+        <label style="margin: 0; white-space: nowrap; font-weight: bold; font-size: 15px;">Select Project:</label>
+        <select name="project" onchange="this.form.submit()" style="padding: 12px; border-radius: 6px; max-width: 400px; width: 100%; font-size: 15px; border: 1px solid #ccc;">
+            <option value="">-- Choose Project --</option>
+            {% for p in project_list %}
+                <option value="{{ p['project_name'] }}" {% if p['project_name'] == selected_project %}selected{% endif %}>{{ p['project_name'] }}</option>
+            {% endfor %}
+        </select>
+    </form>
+</div>
+
+{% if selected_project and project_details %}
+
+<!-- 4 TABS NAVIGATION -->
+<div class="tabs no-print">
+    <button type="button" class="tab-btn {% if active_tab == 'tab1' or (not active_tab and not edit_account_data) %}active{% endif %}" onclick="openTab('tab1', event)">1. Sales Bill Entry</button>
+    <button type="button" class="tab-btn {% if active_tab == 'tab2' or edit_account_data %}active{% endif %}" onclick="openTab('tab2', event)">2. Payment / Expense Entry</button>
+    <button type="button" class="tab-btn {% if active_tab == 'tab3' %}active{% endif %}" onclick="openTab('tab3', event)">3. Sales Bill Details</button>
+    <button type="button" class="tab-btn {% if active_tab == 'tab4' %}active{% endif %}" onclick="openTab('tab4', event)">4. Payment / EXP Details</button>
+</div>
+
+<!-- ================= 1. SALES BILL ENTRY ================= -->
+<div id="tab1" class="tab-content {% if active_tab == 'tab1' or (not active_tab and not edit_account_data) %}active{% endif %}">
+    <div class="card" style="margin-top: 10px;">
+        <h3 class="section-title">{% if edit_bill_data %}Modify Sales Bill ({{ edit_bill_data.bill_no }}){% else %}Add New Sales Bill{% endif %}</h3>
+        <form method="POST" id="billForm">
+            <input type="hidden" name="form_type" value="bill">
+            <input type="hidden" name="project_name" value="{{ selected_project }}">
+            {% if edit_bill_data %}
+            <input type="hidden" name="edit_id" value="{{ edit_bill_data.id }}">
+            {% endif %}
+
+            <datalist id="boq_datalist">
+                {% for b in project_boq_items %}
+                    <option value="{{ b['material_name'] | e }}"></option>
+                {% endfor %}
+            </datalist>
+
+            <div class="form-grid" style="margin-bottom: 15px; grid-template-columns: 1fr 1fr 1fr;">
+                <div>
+                    <label>Bill Type *</label>
+                    <select id="bill_type" name="bill_type" required onchange="onBillTypeChange()">
+                        <option value="BOQ" {% if edit_bill_data and edit_bill_data.bill_type == 'BOQ' %}selected{% endif %}>BOQ Item (Auto Rate)</option>
+                        <option value="General" {% if edit_bill_data and edit_bill_data.bill_type == 'General' %}selected{% endif %}>General / Other (Manual)</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Bill No *</label>
+                    <input type="text" name="bill_no" required placeholder="e.g. INV/001" value="{{ (edit_bill_data.bill_no or '') if edit_bill_data else '' }}">
+                </div>
+                <div>
+                    <label>Bill Date *</label>
+                    <input type="date" name="bill_date" required value="{{ (edit_bill_data.bill_date or '') if edit_bill_data else '' }}">
+                </div>
+            </div>
+
+            <!-- Items Table -->
+            <div class="white-box table-wrap">
+                <table class="table" id="billItemsTable" style="margin: 0; width: 100%; min-width: 900px; table-layout: fixed;">
+                    <thead>
+                        <tr style="background: #f1f5f9;">
+                            <th style="width: 28%;">Description (Type to search) *</th>
+                            <th style="width: 10%;">HSN/SAC</th>
+                            <th style="width: 7%;">Qty</th>
+                            <th style="width: 12%;">Supply Rate</th>
+                            <th style="width: 12%;">Erection Rate</th>
+                            <th style="width: 8%;">GST %</th>
+                            <th style="width: 13%; text-align: right;">Total (₹)</th>
+                            <th style="width: 10%; text-align: center;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="billItemsBody"></tbody>
+                </table>
+            </div>
+
+            <!-- Summary -->
+            <div class="bill-summary" style="margin-top: 15px;">
+                <table>
+                    <tr><th>Taxable Value</th><td>₹ <span id="summary_basic">0.00</span></td></tr>
+                    <tr><th>CGST</th><td>₹ <span id="summary_cgst">0.00</span></td></tr>
+                    <tr><th>SGST</th><td>₹ <span id="summary_sgst">0.00</span></td></tr>
+                    <tr><th>Round Off</th><td>₹ <span id="summary_roundoff">0.00</span></td></tr>
+                    <tr class="summary-grand">
+                        <th style="color: white;">Grand Total</th>
+                        <td>₹ <span id="summary_grand_total">0.00</span></td>
+                    </tr>
+                </table>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button type="submit" class="btn-save" style="flex: 2;">{% if edit_bill_data %}Update Bill Entry{% else %}Save Bill Entry{% endif %}</button>
+                {% if edit_bill_data %}
+                    <a href="{{ url_for('accounts_entry', project=selected_project, tab='tab1') }}" style="flex: 1; background: #e31e24; color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 16px; cursor: pointer; text-align: center; padding: 12px; text-decoration: none; box-sizing: border-box;">❌ Cancel</a>
+                    <a href="{{ url_for('print_bill', id=edit_bill_data.id) }}" target="_blank" style="flex: 1; background: #176b38; color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 16px; cursor: pointer; text-align: center; padding: 12px; text-decoration: none; box-sizing: border-box;">🖨️ Print</a>
+                {% else %}
+                    <button type="button" onclick="alert('Please save the bill first to generate a printable invoice.');" style="flex: 1; background: #176b38; color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 16px; cursor: pointer;">🖨️ Print</button>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ================= 2. PAYMENT / EXPENSE ENTRY ================= -->
+<div id="tab2" class="tab-content {% if active_tab == 'tab2' or edit_account_data %}active{% endif %}">
+    <div class="card" style="margin-top: 10px;">
+        <h3 class="section-title">{% if edit_account_data %}Modify Payment Entry{% else %}Add New Payment / Expense Entry{% endif %}</h3>
+        <form method="POST">
+            <input type="hidden" name="form_type" value="ledger">
+            <input type="hidden" name="project_name" value="{{ selected_project }}">
+            {% if edit_account_data %}
+            <input type="hidden" name="edit_id" value="{{ edit_account_data.id }}">
+            {% endif %}
+
+            <div class="white-box">
+                <div class="form-grid">
+                    <div>
+                        <label>Type *</label>
+                        <select name="transaction_type" id="trans_type" required onchange="toggleBillDropdown()">
+                            <option value="Income" {% if edit_account_data and edit_account_data.transaction_type == 'Income' %}selected{% endif %}>Cash Inflow (Payment Received)</option>
+                            <option value="Expense" {% if edit_account_data and edit_account_data.transaction_type == 'Expense' %}selected{% endif %}>Cash Outflow (Expense Paid)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Date *</label>
+                        <input type="date" name="transaction_date" value="{{ (edit_account_data.transaction_date or '') if edit_account_data else '' }}" required>
+                    </div>
+                    <div>
+                        <label>Amount (₹) *</label>
+                        <input type="number" name="amount" step="0.01" value="{{ (edit_account_data.amount or '') if edit_account_data else '' }}" required placeholder="0.00">
+                    </div>
+                    
+                    <!-- NEW: Bill Linking Dropdown for Income -->
+                    <div id="bill_dropdown_div" style="display: {% if edit_account_data and edit_account_data.transaction_type == 'Expense' %}none{% else %}block{% endif %};">
+                        <label>Link to Bill (Optional)</label>
+                        <select name="bill_no">
+                            <option value="">-- On Account --</option>
+                            {% for b in pending_bills %}
+                                <option value="{{ b.bill_no }}" {% if edit_account_data and edit_account_data.bill_no == b.bill_no %}selected{% endif %}>
+                                    {{ b.bill_no }} (₹{{ b.total_value | inr }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label>Labour / Material</label>
+                        <select name="category">
+                            <option value="" {% if edit_account_data and not edit_account_data.category %}selected{% endif %}>-- None --</option>
+                            <option value="L" {% if edit_account_data and edit_account_data.category == 'L' %}selected{% endif %}>L (Labour)</option>
+                            <option value="M" {% if edit_account_data and edit_account_data.category == 'M' %}selected{% endif %}>M (Material)</option>
+                        </select>
+                    </div>
+                    <div style="grid-column: span 2;">
+                        <label>Particulars *</label>
+                        <input type="text" name="description" value="{{ (edit_account_data.description or '') if edit_account_data else '' }}" required placeholder="e.g. Payment Received">
+                    </div>
+                    <div style="grid-column: span 3;">
+                        <label>Paid Name / Expense Type</label>
+                        <input type="text" name="paid_name" value="{{ (edit_account_data.paid_name or '') if edit_account_data else '' }}" list="party_list" placeholder="Select Party OR Other Expense">
+                        <datalist id="party_list">
+                            {% for p in parties_list %}
+                                <option value="{{ p['party_name'] }}">
+                            {% endfor %}
+                        </datalist>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button type="submit" class="btn-save" style="flex: 1; background: #176b38;">{% if edit_account_data %}Update Payment Entry{% else %}Save Payment Entry{% endif %}</button>
+                {% if edit_account_data %}
+                    <a href="{{ url_for('accounts_entry', project=selected_project, tab='tab2') }}" style="flex: 1; background: #e31e24; color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 16px; cursor: pointer; text-align: center; padding: 12px; text-decoration: none; box-sizing: border-box;">❌ Cancel Edit</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ================= 3. SALES BILL DETAILS ================= -->
+<div id="tab3" class="tab-content {% if active_tab == 'tab3' %}active{% endif %}">
+    <div class="card" style="margin-top: 10px;">
+        <h3 class="section-title">Sales Bill History</h3>
+
+        <div class="date-filter-box no-print">
+            <label>From:</label>
+            <input type="date" id="bill_from_date">
+            <label style="margin-left: 10px;">To:</label>
+            <input type="date" id="bill_to_date">
+            <button type="button" onclick="filterBills()" style="background: #0d47a1; color: white; font-weight: bold; border: none; border-radius: 4px; cursor: pointer;">🔍 Search</button>
+            <button type="button" onclick="clearBillFilter()" style="background: #6c757d; color: white; font-weight: bold; border: none; border-radius: 4px; cursor: pointer;">Clear</button>
+            <span id="bill_filter_info" style="margin-left: auto; font-size: 12px; color: #666; white-space: nowrap;"></span>
+        </div>
+
+        <div class="white-box table-wrap">
+            <table class="table" style="margin: 0; width: 100%;">
+                <thead>
+                    <tr style="background: #f1f5f9;">
+                        <th>Bill No</th>
+                        <th>Bill Date</th>
+                        <th>Total Value (₹)</th>
+                        <th class="no-print" style="text-align: center; width: 180px;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for b in bills %}
+                    <tr class="bill-row" data-date="{{ b['bill_date'] or '' }}" data-amount="{{ b['total_value'] or 0 }}">
+                        <td><strong>{{ b['bill_no'] }}</strong></td>
+                        <td>{{ b['bill_date'] | dateformat }}</td>
+                        <td style="font-weight: bold; color: #0d47a1;">{{ b['total_value'] | inr }}</td>
+                        <td class="no-print">
+                            <div class="action-btns">
+                                <a href="{{ url_for('accounts_entry', project=selected_project, edit_bill=b['id'], tab='tab1') }}" class="btn-add-row" style="padding: 6px 10px; font-size: 12px; background: #ffc107; color: black;">✏️ Modify</a>
+                                <a href="{{ url_for('print_bill', id=b['id']) }}" target="_blank" class="btn-add-row" style="padding: 6px 10px; font-size: 12px; background: #0a2240;">🖨️ Print</a>
+                                <a href="{{ url_for('delete_bill', id=b['id'], project=selected_project, tab='tab3') }}" class="btn-remove" style="padding: 6px 10px; font-size: 12px;">❌</a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="4" style="text-align: center; padding: 20px;">No bills added yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr style="background: #f9fbfc;">
+                        <td colspan="2" style="text-align: right; font-weight: bold;">Cumulative Total:</td>
+                        <td colspan="2" style="font-weight: bold; color: #0d47a1; font-size: 16px;">
+                            <span id="bill_total_footer">₹ {{ cumulative_bills | inr }}</span>
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ================= 4. PAYMENT / EXP DETAILS ================= -->
+<div id="tab4" class="tab-content {% if active_tab == 'tab4' %}active{% endif %}">
+    <div class="card" style="margin-top: 10px;">
+        <h3 class="section-title">Payment / Expense History</h3>
+
+        <div class="date-filter-box no-print">
+            <label>From:</label>
+            <input type="date" id="exp_from_date">
+            <label style="margin-left: 10px;">To:</label>
+            <input type="date" id="exp_to_date">
+            <button type="button" onclick="filterExpenses()" style="background: #0d47a1; color: white; font-weight: bold; border: none; border-radius: 4px; cursor: pointer;">🔍 Search</button>
+            <button type="button" onclick="clearExpFilter()" style="background: #6c757d; color: white; font-weight: bold; border: none; border-radius: 4px; cursor: pointer;">Clear</button>
+            <span id="exp_filter_info" style="margin-left: auto; font-size: 12px; color: #666; white-space: nowrap;"></span>
+        </div>
+
+        <div class="white-box table-wrap">
+            <table class="table" style="margin: 0; width: 100%;">
+                <thead>
+                    <tr style="background: #f1f5f9;">
+                        <th>Date</th>
+                        <th>Particulars</th>
+                        <th>Paid Name</th>
+                        <th>Type</th>
+                        <th>Amount (₹)</th>
+                        <th class="no-print" style="text-align: center; width: 150px;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in accounts %}
+                    <tr class="exp-row" data-date="{{ a['transaction_date'] or '' }}" data-amount="{{ a['amount'] or 0 }}" data-type="{{ a['transaction_type'] }}">
+                        <td>{{ a['transaction_date'] | dateformat }}</td>
+                        <td>
+                            <strong>{{ a['description'] }}</strong> 
+                            {% if a['bill_no'] %}<span style="font-size:10px; background:#e3f2fd; padding:2px 4px; border-radius:3px; margin-left:5px;">Inv: {{ a['bill_no'] }}</span>{% endif %}
+                        </td>
+                        <td>{{ a['paid_name'] or '-' }}</td>
+                        <td>
+                            {% if a['transaction_type'] == 'Income' %}<span style="color: green; font-weight: bold;">Inflow</span>
+                            {% else %}<span style="color: red; font-weight: bold;">Outflow</span>{% endif %}
+                        </td>
+                        <td style="font-weight: bold; color: {% if a['transaction_type'] == 'Income' %}green{% else %}red{% endif %};">
+                            {{ a['amount'] | inr }}
+                        </td>
+                        <td class="no-print">
+                            <div class="action-btns">
+                                <a href="{{ url_for('accounts_entry', project=selected_project, edit_account=a['id'], tab='tab2') }}" class="btn-add-row" style="padding: 6px 10px; font-size: 12px; background: #ffc107; color: black;">✏️ Modify</a>
+                                <a href="{{ url_for('delete_account_entry', id=a['id'], project=selected_project, tab='tab4') }}" class="btn-remove" style="padding: 6px 10px; font-size: 12px;">❌</a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="6" style="text-align: center; padding: 20px;">No payments recorded yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr style="background: #f9fbfc;">
+                        <td colspan="4" style="text-align: right; font-weight: bold;">Total:</td>
+                        <td colspan="2" style="font-weight: bold; font-size: 15px;">
+                            <span style="color: green;">In: <span id="exp_total_in">₹{{ total_income | inr }}</span></span> |
+                            <span style="color: red;">Out: <span id="exp_total_out">₹{{ total_expense | inr }}</span></span>
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div class="card" style="text-align: center; padding: 50px;">
+    <h3 style="color: #666;">Please select a project above to view or add entries.</h3>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// --- Tabs ---
+function openTab(tabName, evt) {
+    document.querySelectorAll(".tab-content").forEach(t => t.classList.remove("active"));
+    document.querySelectorAll(".tab-btn").forEach(t => t.classList.remove("active"));
+    document.getElementById(tabName).classList.add("active");
+    evt.currentTarget.classList.add("active");
+}
+
+// --- Toggle Bill Linking Dropdown ---
+function toggleBillDropdown() {
+    const type = document.getElementById("trans_type").value;
+    document.getElementById("bill_dropdown_div").style.display = (type === "Income") ? "block" : "none";
+}
+
+// --- HTML escape for building input value attribute ---
+function escHtml(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+// --- BOQ data map ---
+const boqData = {
+    {% for b in project_boq_items %}
+        {{ b['material_name'] | tojson }}: { sup: {{ b['supply_rate'] or 0 }}, ere: {{ b['erection_rate'] or 0 }} },
+    {% endfor %}
+};
+
+const editBillData = {{ edit_bill_data | tojson if edit_bill_data else 'null' }};
+const editBillItems = {{ edit_bill_items | tojson if edit_bill_items else '[]' }};
+
+function buildDescField(billType, value) {
+    const safeValue = escHtml(value || '');
+    if (billType === 'BOQ') {
+        return `<input type="text" name="description[]" list="boq_datalist" class="item-desc boq-input" oninput="onBoqInput(this)" placeholder="Type item name..." required autocomplete="off" value="${safeValue}">`;
+    } else {
+        return `<input type="text" name="description[]" class="item-desc" placeholder="Type description" required value="${safeValue}">`;
+    }
+}
+
+function onBoqInput(inp) {
+    const val = inp.value;
+    if (boqData[val]) {
+        const row = inp.closest("tr");
+        row.querySelector(".sup-rate").value = parseFloat(boqData[val].sup).toFixed(2);
+        row.querySelector(".ere-rate").value = parseFloat(boqData[val].ere).toFixed(2);
+        calculateRow(row);
+    }
+}
+
+function onBillTypeChange() {
+    const billType = document.getElementById("bill_type").value;
+    document.querySelectorAll("#billItemsBody tr").forEach(row => {
+        const currentVal = row.querySelector("input[name='description[]']").value;
+        row.querySelector(".desc-cell").innerHTML = buildDescField(billType, currentVal);
+    });
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    if (document.getElementById("billItemsBody")) {
+        if (editBillData) {
+            document.getElementById("billItemsBody").innerHTML = '';
+            editBillItems.forEach(item => {
+                addRowAfter(null);
+                const lastRow = document.getElementById("billItemsBody").lastElementChild;
+                lastRow.querySelector("input[name='description[]']").value = item.description || '';
+                lastRow.querySelector("input[name='hsn_sac[]']").value = item.hsn_sac || '';
+                lastRow.querySelector("input[name='quantity[]']").value = item.quantity || 0;
+
+                let sRate = item.supply_rate || 0;
+                let eRate = item.erection_rate || 0;
+                if (sRate === 0 && eRate === 0) {
+                    sRate = item.rate || 0;
+                }
+
+                lastRow.querySelector("input[name='supply_rate[]']").value = sRate;
+                lastRow.querySelector("input[name='erection_rate[]']").value = eRate;
+                lastRow.querySelector("select[name='gst_rate[]']").value = item.gst_rate || 18;
+                calculateRow(lastRow);
+            });
+        } else {
+            addRowAfter(null);
+        }
+    }
+});
+
+function addRowAfter(btn) {
+    const billType = document.getElementById("bill_type").value;
+    const tbody = document.getElementById("billItemsBody");
+    const newRow = document.createElement("tr");
+
+    newRow.innerHTML = `
+        <td class="desc-cell">${buildDescField(billType)}</td>
+        <td><input type="text" name="hsn_sac[]" class="item-hsn" placeholder="HSN"></td>
+        <td><input type="number" name="quantity[]" class="item-qty qty" step="any" value="1" required></td>
+        <td><input type="number" name="supply_rate[]" class="item-rate sup-rate" step="any" value="0"></td>
+        <td><input type="number" name="erection_rate[]" class="item-rate ere-rate" step="any" value="0"></td>
+        <td>
+            <select name="gst_rate[]" class="item-gst gst">
+                <option value="0">0%</option>
+                <option value="5">5%</option>
+                <option value="12">12%</option>
+                <option value="18" selected>18%</option>
+                <option value="28">28%</option>
+            </select>
+        </td>
+        <td class="rowTotal item-total">0.00</td>
+        <td style="text-align: center; white-space: nowrap;">
+            <button type="button" onclick="addRowAfter(this)" class="btn-add-row">+</button>
+            <button type="button" onclick="removeRow(this)" class="btn-remove">X</button>
+        </td>
+    `;
+    if (btn) { btn.closest('tr').after(newRow); }
+    else { tbody.appendChild(newRow); }
+    attachEvents(newRow);
+}
+
+function removeRow(btn) {
+    btn.closest('tr').remove();
+    calculateGrandTotal();
+}
+
+function attachEvents(row) {
+    const qty = row.querySelector(".qty");
+    const supRate = row.querySelector(".sup-rate");
+    const ereRate = row.querySelector(".ere-rate");
+    const gst = row.querySelector(".gst");
+    if (qty) qty.addEventListener("input", () => calculateRow(row));
+    if (supRate) supRate.addEventListener("input", () => calculateRow(row));
+    if (ereRate) ereRate.addEventListener("input", () => calculateRow(row));
+    if (gst) gst.addEventListener("change", () => calculateRow(row));
+}
+
+function calculateRow(row) {
+    if (row) {
+        const qty = parseFloat(row.querySelector(".qty").value) || 0;
+        const sup = parseFloat(row.querySelector(".sup-rate").value) || 0;
+        const ere = parseFloat(row.querySelector(".ere-rate").value) || 0;
+        const gst = parseFloat(row.querySelector(".gst").value) || 0;
+        const basic = qty * (sup + ere);
+        const total = basic * (1 + gst / 100);
+        row.querySelector(".rowTotal").textContent = total.toFixed(2);
+    }
+    calculateGrandTotal();
+}
+
+function calculateGrandTotal() {
+    let totalBasic = 0, totalGst = 0;
+    document.querySelectorAll("#billItemsBody tr").forEach(row => {
+        const qty = parseFloat(row.querySelector(".qty").value) || 0;
+        const sup = parseFloat(row.querySelector(".sup-rate").value) || 0;
+        const ere = parseFloat(row.querySelector(".ere-rate").value) || 0;
+        const gst = parseFloat(row.querySelector(".gst").value) || 0;
+        const basic = qty * (sup + ere);
+        totalBasic += basic;
+        totalGst += basic * (gst / 100);
+    });
+    const exactTotal = totalBasic + totalGst;
+    const roundedTotal = Math.round(exactTotal);
+    const roundOff = roundedTotal - exactTotal;
+    document.getElementById("summary_basic").textContent = totalBasic.toFixed(2);
+    document.getElementById("summary_cgst").textContent = (totalGst / 2).toFixed(2);
+    document.getElementById("summary_sgst").textContent = (totalGst / 2).toFixed(2);
+    document.getElementById("summary_roundoff").textContent = roundOff.toFixed(2);
+    document.getElementById("summary_grand_total").textContent = roundedTotal.toFixed(2);
+}
+
+// --- Indian number formatting ---
+function fmtINR(n) {
+    return '₹ ' + Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// --- Filter Bills ---
+function filterBills() {
+    const from = document.getElementById('bill_from_date').value;
+    const to = document.getElementById('bill_to_date').value;
+    let total = 0, visible = 0, all = 0;
+
+    document.querySelectorAll('.bill-row').forEach(row => {
+        all++;
+        const date = row.getAttribute('data-date');
+        const amount = parseFloat(row.getAttribute('data-amount')) || 0;
+        if (!date) { row.style.display = ''; total += amount; visible++; return; }
+        if ((!from || date >= from) && (!to || date <= to)) {
+            row.style.display = '';
+            total += amount;
+            visible++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    const footer = document.getElementById('bill_total_footer');
+    if (footer) footer.textContent = fmtINR(total);
+
+    const info = document.getElementById('bill_filter_info');
+    if (info) info.textContent = (from || to) ? `Showing ${visible} of ${all} bills` : '';
+}
+
+function clearBillFilter() {
+    document.getElementById('bill_from_date').value = '';
+    document.getElementById('bill_to_date').value = '';
+    filterBills();
+}
+
+// --- Filter Expenses ---
+function filterExpenses() {
+    const from = document.getElementById('exp_from_date').value;
+    const to = document.getElementById('exp_to_date').value;
+    let inflow = 0, outflow = 0, visible = 0, all = 0;
+
+    document.querySelectorAll('.exp-row').forEach(row => {
+        all++;
+        const date = row.getAttribute('data-date');
+        const amount = parseFloat(row.getAttribute('data-amount')) || 0;
+        const type = row.getAttribute('data-type');
+        const inRange = !date || ((!from || date >= from) && (!to || date <= to));
+        if (inRange) {
+            row.style.display = '';
+            if (type === 'Income') inflow += amount; else outflow += amount;
+            visible++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    const inEl = document.getElementById('exp_total_in');
+    const outEl = document.getElementById('exp_total_out');
+    if (inEl) inEl.textContent = fmtINR(inflow);
+    if (outEl) outEl.textContent = fmtINR(outflow);
+
+    const info = document.getElementById('exp_filter_info');
+    if (info) info.textContent = (from || to) ? `Showing ${visible} of ${all} entries` : '';
+}
+
+function clearExpFilter() {
+    document.getElementById('exp_from_date').value = '';
+    document.getElementById('exp_to_date').value = '';
+    filterExpenses();
+}
+</script>
+{% endblock %}

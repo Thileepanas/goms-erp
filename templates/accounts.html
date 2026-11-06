@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Project P&L{% endblock %}
+{% block page_title %}Projects Profit & Loss (P&L){% endblock %}
+
+{% block content %}
+<!-- Print Button -->
+<div class="no-print" style="text-align: right; margin-bottom: 15px;">
+    <button onclick="window.print()" class="btn" style="background: #0a2240;">🖨️ Print P&L Report</button>
+</div>
+
+<!-- Print Header (Hidden on Screen) -->
+<div class="d-print-block" style="display: none; align-items: center; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px;">
+    <div>
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="GOMS Logo" style="max-height: 60px;">
+    </div>
+    <div style="text-align: right;">
+        <h2 style="margin: 0; color: #0a2240;">GOMS Electricals Pvt. Ltd.</h2>
+        <p style="margin: 5px 0 0 0; font-size: 12px;">Project Profit & Loss Report</p>
+    </div>
+</div>
+
+<div class="card">
+    <h3>Projects Profit & Loss Overview</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Project Name</th>
+                    <th>Client</th>
+                    <th style="text-align: right;">Project Value (₹)</th>
+                    <th style="text-align: right;">Total Income (₹)</th>
+                    <th style="text-align: right;">Total Expense (₹)</th>
+                    <th style="text-align: right;">Profit / Loss (₹)</th>
+                    <th class="no-print" style="text-align: center;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- FIX: Using namespace to calculate Grand Totals safely -->
+                {% set ns = namespace(total_value=0, total_income=0, total_expense=0, total_profit=0) %}
+                {% for p in pnl_list %}
+                    {% set ns.total_value = ns.total_value + (p.value or 0) %}
+                    {% set ns.total_income = ns.total_income + (p.income or 0) %}
+                    {% set ns.total_expense = ns.total_expense + (p.expense or 0) %}
+                    {% set ns.total_profit = ns.total_profit + (p.profit or 0) %}
+                <tr>
+                    <td><strong>{{ p.project_name }}</strong></td>
+                    <td>{{ p.client }}</td>
+                    <!-- FIX: None-safe and inr filter -->
+                    <td style="text-align: right;">{{ (p.value or 0) | inr }}</td>
+                    <td style="text-align: right; color: #176b38;">{{ (p.income or 0) | inr }}</td>
+                    <td style="text-align: right; color: #b42318;">{{ (p.expense or 0) | inr }}</td>
+                    <td style="text-align: right; font-weight: bold; color: {% if (p.profit or 0) >= 0 %}#176b38{% else %}#b42318{% endif %};">
+                        {{ (p.profit or 0) | inr }}
+                    </td>
+                    <td class="no-print" style="text-align: center;"> 
+                        <!-- FIX: Added Flex container to align both buttons -->
+                        <div style="display: flex; gap: 5px; justify-content: center;">
+                            <a href="{{ url_for('project_pnl_detail', project_name=p.project_name) }}" class="btn" style="background: #0d47a1; padding: 6px 12px; font-size: 13px;">View P&L</a>
+                            <!-- NEW: Cost Control Button -->
+                            <a href="{{ url_for('cost_control', project_name=p.project_name) }}" class="btn" style="background: #176b38; padding: 6px 12px; font-size: 13px;">Cost Control</a>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" style="text-align: center; padding: 20px;">No projects found.</td></tr>
+                {% endfor %}
+            </tbody>
+            {% if pnl_list %}
+            <tfoot>
+                <tr style="background: #e2e8f0; font-weight: bold;">
+                    <td colspan="2" style="text-align: right; font-size: 15px;">Grand Total:</td>
+                    <td style="text-align: right; color: #0d47a1;">{{ ns.total_value | inr }}</td>
+                    <td style="text-align: right; color: #176b38;">{{ ns.total_income | inr }}</td>
+                    <td style="text-align: right; color: #b42318;">{{ ns.total_expense | inr }}</td>
+                    <td style="text-align: right; color: {% if ns.total_profit >= 0 %}#176b38{% else %}#b42318{% endif %}; font-size: 15px;">
+                        {{ ns.total_profit | inr }}
+                    </td>
+                    <td class="no-print"></td>
+                </tr>
+            </tfoot>
+            {% endif %}
+        </table>
+    </div>
+</div>
+{% endblock %}

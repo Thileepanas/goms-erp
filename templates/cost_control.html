@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Cost Control{% endblock %}
+{% block page_title %}Cost Control & Forecasting - {{ project['project_name'] }}{% endblock %}
+
+{% block content %}
+<style>
+    .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 25px; }
+    .kpi-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-top: 4px solid #0d47a1; text-align: center; }
+    .kpi-card h4 { color: #666; font-size: 13px; text-transform: uppercase; margin-bottom: 10px; }
+    .kpi-card h2 { font-size: 24px; color: var(--primary-blue); margin: 0; font-weight: bold; }
+    
+    .table-wrap { overflow-x: auto; width: 100%; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 10px; border-bottom: 1px solid #ddd; font-size: 13px; text-align: right; }
+    th { background: #f1f5f9; color: var(--primary-blue); font-weight: bold; text-align: center; }
+    td:first-child, th:first-child { text-align: left; font-weight: bold; }
+    
+    .bg-plan { background: #e3f2fd; }
+    .bg-actual { background: #fff8e1; }
+    .bg-forecast { background: #e8f5e9; }
+    .profit { color: #176b38; font-weight: bold; }
+    .loss { color: #e31e24; font-weight: bold; }
+</style>
+
+<!-- Summary KPI Cards -->
+<div class="kpi-grid">
+    <div class="kpi-card bg-plan">
+        <h4>Total Client Value (Revenue)</h4>
+        <h2>₹ {{ total_client_value | inr }}</h2>
+    </div>
+    <div class="kpi-card bg-actual">
+        <h4>Total Actual Cost Incurred</h4>
+        <h2>₹ {{ total_actual_cost | inr }}</h2>
+    </div>
+    <div class="kpi-card bg-forecast">
+        <h4>Projected Final Profit</h4>
+        <h2 class="{% if projected_profit >= 0 %}profit{% else %}loss{% endif %}">₹ {{ projected_profit | inr }}</h2>
+    </div>
+</div>
+
+<div class="card">
+    <h3>Item-wise PLAN - ACTUAL - FORECAST</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>BOQ Item</th>
+                    <th>Qty</th>
+                    <th>Client Value (₹)</th>
+                    <th>Plan Cost (Target) (₹)</th>
+                    <th>Actual Cost (₹)</th>
+                    <th>Forecast Cost (₹)</th>
+                    <th>Projected Total Cost (₹)</th>
+                    <th>Projected Profit (₹)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in cost_data %}
+                <tr>
+                    <td>{{ row.description }}</td>
+                    <td style="text-align: center;">{{ row.qty }}</td>
+                    <td>{{ row.client_value | inr }}</td>
+                    <td class="bg-plan">{{ row.plan_cost | inr }}</td>
+                    <td class="bg-actual">{{ row.actual_cost | inr }}</td>
+                    <td class="bg-forecast">{{ row.forecast_cost | inr }}</td>
+                    <td style="font-weight: bold;">{{ row.total_projected_cost | inr }}</td>
+                    <td class="{% if row.projected_profit >= 0 %}profit{% else %}loss{% endif %}">{{ row.projected_profit | inr }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="8" style="text-align: center;">No BOQ items found.</td></tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr style="background: #0a2240; color: white; font-weight: bold;">
+                    <td colspan="2" style="text-align: right;">GRAND TOTAL</td>
+                    <td>₹ {{ total_client_value | inr }}</td>
+                    <td>₹ {{ total_plan_cost | inr }}</td>
+                    <td>₹ {{ total_actual_cost | inr }}</td>
+                    <td>₹ {{ total_forecast_cost | inr }}</td>
+                    <td>₹ {{ total_projected_cost | inr }}</td>
+                    <td class="{% if projected_profit >= 0 %}profit{% else %}loss{% endif %}">₹ {{ projected_profit | inr }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+{% endblock %}

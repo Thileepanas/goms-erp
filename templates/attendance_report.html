@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Salary Report{% endblock %}
+{% block page_title %}Monthly Attendance & Salary Report{% endblock %}
+
+{% block content %}
+<div class="card no-print" style="background: #f9fbfc;">
+    <form method="GET" style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+        <label style="margin: 0; font-weight: bold;">Select Month:</label>
+        <input type="month" name="month" value="{{ selected_month }}" onchange="this.form.submit()" style="padding: 10px; border-radius: 6px; border: 1px solid #ccc;">
+        <button onclick="window.print()" type="button" class="btn" style="margin-left: auto; background: #0a2240;">🖨️ Print Report</button>
+    </form>
+</div>
+
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h3 style="margin: 0;">Salary Report for {{ selected_month }}</h3>
+        
+        <!-- NEW: Pay Salary Button -->
+        {% if report_data and ns.total_payout > 0 %}
+        <form method="POST" action="{{ url_for('pay_labour_salary') }}" onsubmit="return confirm('Save this total amount as an Expense in Accounts?');">
+            <input type="hidden" name="month" value="{{ selected_month }}">
+            <input type="hidden" name="total_amount" value="{{ ns.total_payout }}">
+            <button type="submit" class="btn" style="background: #176b38; padding: 10px 20px;">💰 Record as Expense</button>
+        </form>
+        {% endif %}
+    </div>
+    
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Labour Name</th>
+                    <th>Designation</th>
+                    <th>Project</th>
+                    <th>Daily Wage (₹)</th>
+                    <th>Present Days</th>
+                    <th>Total Salary (₹)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set ns = namespace(total_payout=0) %}
+                {% for item in report_data %}
+                    {% set ns.total_payout = ns.total_payout + (item.total_salary or 0) %}
+                <tr>
+                    <td><strong>{{ item.name }}</strong></td>
+                    <td>{{ item.designation or '-' }}</td>
+                    <td>{{ item.project or '-' }}</td>
+                    <td>{{ (item.wage or 0) | inr }}</td>
+                    <td style="font-weight: bold; color: #0d47a1;">{{ item.present_days }}</td>
+                    <td style="font-weight: bold; color: #176b38;">₹ {{ (item.total_salary or 0) | inr }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" style="text-align: center;">No data found for this month.</td></tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr style="background: #e2e8f0;">
+                    <td colspan="5" style="text-align: right; font-weight: bold; font-size: 16px;">Total Payout for {{ selected_month }}:</td>
+                    <td style="font-weight: bold; font-size: 16px; color: #176b38;">₹ {{ ns.total_payout | inr }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+{% endblock %}

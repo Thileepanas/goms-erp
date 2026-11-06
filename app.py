@@ -819,19 +819,76 @@ def cost_control(project_name):
     conn = get_db()
     project = conn.execute("SELECT * FROM projects WHERE project_name=?", (project_name,)).fetchone()
     boq_items = conn.execute("SELECT * FROM poq WHERE project_name=?", (project_name,)).fetchall()
-    cost_data = []; t_plan=0; t_actual=0; t_fore=0; t_client=0
+    
+    cost_data = []; t_plan=0; t_pur=0; t_acc=0; t_fore=0; t_client=0
+    
     for item in boq_items:
-        qty = item['quantity'] or 0; cs = item['company_supply_rate'] or 0; ce = item['company_erection_rate'] or 0
-        plan = qty * (cs + ce)
-        pur = conn.execute("SELECT SUM(pi.amount) FROM purchase_items pi JOIN purchases p ON pi.purchase_id=p.id WHERE p.project_name=? AND pi.material_name=?", (project_name, item['material_name'])).fetchone()[0] or 0
-        acc = conn.execute("SELECT SUM(amount) FROM accounts WHERE project_name=? AND transaction_type='Expense' AND (description LIKE ? OR paid_name LIKE ?)", (project_name, f"%{item['material_name']}%", f"%{item['material_name']}%")).fetchone()[0] or 0
-        actual = pur + acc
+        qty = item['quantity'] or 0
+        c_sup = item['company_supply_rate'] or 0
+        c_ere = item['company_erection_rate'] or 0
+        
+        # 1. PLAN COST (Target)
+        plan = qty * (c_sup + c_ere)
+        
+        # 2. ACTUAL SUPPLY COST (From Purchases)
+        pur = conn.execute("""
+            SELECT SUM(pi.amount) FROM purchase_items pi 
+            JOIN purchases p ON pi.purchase_id = p.id 
+            WHERE p.project_name = ? AND pi.material_name = ?
+        """, (project_name, item['material_name'])).fetchone()[0] or 0
+        
+        # 3. ACTUAL EXPENSE COST (From Accounts - Labour, Subcon, etc.)
+        acc = conn.execute("""
+            SELECT SUM(amount) FROM accounts 
+            WHERE project_name = ? AND transaction_type = 'Expense' 
+            AND (description LIKE ? OR paid_name LIKE ?)
+        """, (project_name, f"%{item['material_name']}%", f"%{item['material_name']}%")).fetchone()[0] or 0
+        
+        actual_total = pur + acc
+        
+        # 4. FORECAST COST (Remaining work)
         done = conn.execute("SELECT SUM(qty_supply) FROM work_progress WHERE boq_item_id=?", (item['id'],)).fetchone()[0] or 0
-        fore = max(0, qty - done) * (cs + ce)
-        cli_rate = (item['supply_rate'] or 0) + (item['erection_rate'] or 0); cli_val = qty * cli_rate
-        cost_data.append({"description": item['material_name'], "qty": qty, "client_value": cli_val, "plan_cost": plan, "actual_cost": actual, "forecast_cost": fore, "total_projected_cost": actual+fore, "projected_profit": cli_val-(actual+fore)})
-        t_plan += plan; t_actual += actual; t_fore += fore; t_client += cli_val
-    conn.close(); return render_template("cost_control.html", project=project, cost_data=cost_data, total_plan_cost=t_plan, total_actual_cost=t_actual, total_forecast_cost=t_fore, total_client_value=t_client, total_projected_cost=t_actual+t_fore, projected_profit=t_client-(t_actual+t_fore))
+        fore = max(0, qty - done) * (c_sup + c_ere)
+        
+        # 5. CLIENT VALUE (Revenue)
+        cli_rate = (item['supply_rate'] or 0) + (item['erection_rate'] or 0)
+        cli_val = qty * cli_rate
+        
+        # 6. PROJECTED PROFIT
+        proj_total_cost = actual_total + fore
+        proj_profit = cli_val - proj_total_cost
+        
+        cost_data.append({
+            "description": item['material_name'], 
+            "qty": qty, 
+            "client_value": cli_val, 
+            "plan_cost": plan, 
+            "actual_pur": pur,
+            "actual_acc": acc,
+            "actual_total": actual_total, 
+            "forecast_cost": fore, 
+            "total_projected_cost": proj_total_cost, 
+            "projected_profit": proj_profit
+        })
+        
+        t_plan += plan
+        t_pur += pur
+        t_acc += acc
+        t_fore += fore
+        t_client += cli_val
+
+    conn.close()
+    return render_template("cost_control.html", 
+                           project=project, 
+                           cost_data=cost_data, 
+                           total_plan_cost=t_plan, 
+                           total_actual_pur=t_pur,
+                           total_actual_acc=t_acc,
+                           total_actual_cost=t_pur+t_acc, 
+                           total_forecast_cost=t_fore, 
+                           total_client_value=t_client, 
+                           total_projected_cost=(t_pur+t_acc)+t_fore, 
+                           projected_profit=t_client-((t_pur+t_acc)+t_fore))
 
 # ------------------------------------------------------------------
 # PARTIES & LEDGERS

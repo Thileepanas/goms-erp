@@ -26,15 +26,16 @@
 <div class="card" style="background: #f9fbfc;">
     <form method="POST">
         <div class="table-wrap" style="background: white; padding: 10px; border-radius: 6px; border: 1px solid #ddd; overflow-x: auto;">
-            <table id="itemsTable" style="margin: 0; min-width: 700px; width: 100%; border-collapse: collapse;">
+            <table id="itemsTable" style="margin: 0; min-width: 900px; width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr style="background: #f1f5f9;">
-                        <th style="width: 40%; padding: 10px; text-align: left;">Description *</th>
+                        <th style="width: 30%; padding: 10px; text-align: left;">Description *</th>
                         <th style="width: 10%; padding: 10px; text-align: left;">Unit</th>
-                        <th style="width: 15%; padding: 10px; text-align: left;">Qty *</th>
-                        <th style="width: 15%; padding: 10px; text-align: left;">Rate (₹) *</th>
+                        <th style="width: 10%; padding: 10px; text-align: left;">Qty *</th>
+                        <th style="width: 15%; padding: 10px; text-align: left;">Supply Rate *</th>
+                        <th style="width: 15%; padding: 10px; text-align: left;">Erection Rate *</th>
                         <th style="width: 15%; padding: 10px; text-align: right;">Amount (₹)</th>
-                        <th style="width: 10%; padding: 10px; text-align: center;">Action</th>
+                        <th style="width: 5%; padding: 10px; text-align: center;">Action</th>
                     </tr>
                 </thead>
                 <tbody id="itemsBody">
@@ -46,7 +47,11 @@
                             </select>
                         </td>
                         <td style="padding: 5px;"><input type="number" name="quantity[]" step="any" required value="1" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;" oninput="calc(this)"></td>
-                        <td style="padding: 5px;"><input type="number" name="rate[]" step="any" required value="0" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;" oninput="calc(this)"></td>
+                        
+                        <!-- NEW: Supply Rate & Erection Rate -->
+                        <td style="padding: 5px;"><input type="number" name="supply_rate[]" step="any" required value="0" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;" oninput="calc(this)"></td>
+                        <td style="padding: 5px;"><input type="number" name="erection_rate[]" step="any" required value="0" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;" oninput="calc(this)"></td>
+                        
                         <td class="rowTotal" style="text-align: right; font-weight: bold; padding: 10px;">0.00</td>
                         <td style="text-align: center; padding: 5px;">
                             <button type="button" onclick="addRow(this)" class="btn" style="background: #176b38; padding: 6px 10px;">+</button>
@@ -69,14 +74,15 @@
 <div class="card">
     <h3>Estimation List</h3>
     <div class="table-wrap" style="overflow-x: auto;">
-        <table style="width: 100%; border-collapse: collapse; min-width: 800px;">
+        <table style="width: 100%; border-collapse: collapse; min-width: 900px;">
             <thead>
                 <tr style="background: #f1f5f9;">
                     <th style="padding: 10px; text-align: left;">S.No</th>
                     <th style="padding: 10px; text-align: left;">Description</th>
                     <th style="padding: 10px; text-align: left;">Unit</th>
                     <th style="padding: 10px; text-align: left;">Qty</th>
-                    <th style="padding: 10px; text-align: left;">Rate</th>
+                    <th style="padding: 10px; text-align: right;">Supply Rate</th>
+                    <th style="padding: 10px; text-align: right;">Erection Rate</th>
                     <th style="padding: 10px; text-align: right;">Total Amount (₹)</th>
                     <th class="no-print" style="padding: 10px; text-align: center;">Action</th>
                 </tr>
@@ -89,7 +95,9 @@
                     <td style="padding: 10px;"><strong>{{ item['description'] }}</strong></td>
                     <td style="padding: 10px;">{{ item['unit'] }}</td>
                     <td style="padding: 10px;">{{ item['quantity'] }}</td>
-                    <td style="padding: 10px;">{{ (item['rate'] or 0) | inr }}</td>
+                    <!-- NEW: Show split rates -->
+                    <td style="padding: 10px; text-align: right;">{{ (item['supply_rate'] or 0) | inr }}</td>
+                    <td style="padding: 10px; text-align: right;">{{ (item['erection_rate'] or 0) | inr }}</td>
                     <td style="padding: 10px; text-align: right; font-weight: bold;">{{ (item['amount'] or 0) | inr }}</td>
                     <td class="no-print" style="padding: 10px; text-align: center;">
                         <button type="button" onclick="toggleEdit({{ item.id }})" class="btn" style="padding: 6px 10px; font-size: 12px; background: #ffc107; color: black;">✏️ Edit</button>
@@ -104,7 +112,10 @@
                         <td style="padding: 5px;"><input type="text" name="description" value="{{ item['description'] }}" required style="width: 100%; padding: 6px; border:1px solid #ccc; border-radius:4px;"></td>
                         <td style="padding: 5px;"><input type="text" name="unit" value="{{ item['unit'] }}" required style="width: 60px; padding: 6px; border:1px solid #ccc; border-radius:4px;"></td>
                         <td style="padding: 5px;"><input type="number" name="quantity" step="any" value="{{ item['quantity'] }}" required style="width: 80px; padding: 6px; border:1px solid #ccc; border-radius:4px;"></td>
-                        <td style="padding: 5px;"><input type="number" name="rate" step="any" value="{{ item['rate'] }}" required style="width: 100px; padding: 6px; border:1px solid #ccc; border-radius:4px;"></td>
+                        <!-- NEW: Edit split rates -->
+                        <td style="padding: 5px;"><input type="number" name="supply_rate" step="any" value="{{ item['supply_rate'] or 0 }}" required style="width: 100px; padding: 6px; border:1px solid #ccc; border-radius:4px;"></td>
+                        <td style="padding: 5px;"><input type="number" name="erection_rate" step="any" value="{{ item['erection_rate'] or 0 }}" required style="width: 100px; padding: 6px; border:1px solid #ccc; border-radius:4px;"></td>
+                        
                         <td style="padding: 10px; text-align: right; color: #999; font-size: 12px;">Auto-calculated</td>
                         <td class="no-print" style="padding: 10px; text-align: center;">
                             <button type="submit" class="btn" style="padding: 6px 10px; font-size: 12px; background: #176b38;">💾 Save</button>
@@ -113,12 +124,12 @@
                     </form>
                 </tr>
                 {% else %}
-                <tr><td colspan="7" style="text-align: center; padding: 20px;">No items added.</td></tr>
+                <tr><td colspan="8" style="text-align: center; padding: 20px;">No items added.</td></tr>
                 {% endfor %}
             </tbody>
             <tfoot>
                 <tr style="background: #e2e8f0;">
-                    <td colspan="5" style="text-align: right; font-weight: bold; font-size: 16px; padding: 10px;">Total Estimated Value:</td>
+                    <td colspan="6" style="text-align: right; font-weight: bold; font-size: 16px; padding: 10px;">Total Estimated Value:</td>
                     <td style="text-align: right; font-weight: bold; font-size: 16px; padding: 10px;">₹ {{ (tender['estimated_value'] or 0) | inr }}</td>
                     <td class="no-print"></td>
                 </tr>
@@ -141,7 +152,10 @@
                 </select>
             </td>
             <td style="padding: 5px;"><input type="number" name="quantity[]" step="any" required value="1" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;" oninput="calc(this)"></td>
-            <td style="padding: 5px;"><input type="number" name="rate[]" step="any" required value="0" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;" oninput="calc(this)"></td>
+            <!-- NEW: Supply Rate & Erection Rate -->
+            <td style="padding: 5px;"><input type="number" name="supply_rate[]" step="any" required value="0" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;" oninput="calc(this)"></td>
+            <td style="padding: 5px;"><input type="number" name="erection_rate[]" step="any" required value="0" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;" oninput="calc(this)"></td>
+            
             <td class="rowTotal" style="text-align: right; font-weight: bold; padding: 10px;">0.00</td>
             <td style="text-align: center; padding: 5px;">
                 <button type="button" onclick="addRow(this)" class="btn" style="background: #176b38; padding: 6px 10px;">+</button>
@@ -159,8 +173,14 @@
     function calc(inp) {
         const row = inp.closest('tr');
         const qty = parseFloat(row.querySelector("input[name='quantity[]']").value) || 0;
-        const rate = parseFloat(row.querySelector("input[name='rate[]']").value) || 0;
-        row.querySelector(".rowTotal").textContent = (qty * rate).toFixed(2);
+        const supRate = parseFloat(row.querySelector("input[name='supply_rate[]']").value) || 0;
+        const ereRate = parseFloat(row.querySelector("input[name='erection_rate[]']").value) || 0;
+        
+        // FIX: Calculate Total Rate
+        const totalRate = supRate + ereRate;
+        const totalAmount = qty * totalRate;
+        
+        row.querySelector(".rowTotal").textContent = totalAmount.toFixed(2);
         calcGrandTotal();
     }
 

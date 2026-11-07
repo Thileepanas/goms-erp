@@ -20,25 +20,70 @@
     .bg-forecast { background: #e8f5e9; }
     .profit { color: #176b38; font-weight: bold; }
     .loss { color: #e31e24; font-weight: bold; }
+    
+    .summary-box { width: 50%; margin-left: auto; margin-top: 20px; border: 1px solid #ccc; border-radius: 6px; background: white; }
+    .summary-box table { margin: 0; }
+    .summary-box td { padding: 12px 15px; border-bottom: 1px solid #eee; font-size: 14px; }
+    .summary-box .total-row { background: #0a2240; color: white; font-size: 16px; font-weight: bold; border-bottom: none; }
+
+    /* ========== PRINT SETTINGS ========== */
+    @media print {
+        /* 1. Hide everything on the page */
+        body * { visibility: hidden; }
+        
+        /* 2. Make ONLY the print-area and its children visible */
+        .print-area, .print-area * { visibility: visible; }
+        
+        /* 3. Position it at the top left of the page */
+        .print-area { position: absolute; left: 0; top: 0; width: 100%; }
+        
+        /* 4. Hide UI elements */
+        .no-print, .sidebar, .topbar, .btn { display: none !important; }
+        
+        /* 5. Clean up borders and backgrounds for print */
+        .print-area { box-shadow: none !important; border: none !important; padding: 0 !important; margin: 0 !important; }
+        th, td { border: 1px solid #999 !important; padding: 8px; font-size: 12px; }
+        th { background: #f1f5f9 !important; color: #000 !important; -webkit-print-color-adjust: exact; }
+        
+        /* 6. Print Summary Box */
+        .summary-box { width: 60%; border: 1px solid #000; }
+        .summary-box td { border: 1px solid #999 !important; }
+        .summary-box .total-row { border-top: 2px solid #000; }
+    }
 </style>
 
+<!-- Print Button (No Print) -->
+<div class="no-print" style="text-align: right; margin-bottom: 15px;">
+    <button onclick="window.print()" class="btn" style="background: #0a2240; padding: 10px 20px; font-size: 15px;">🖨️ Print Report</button>
+</div>
+
+<!-- Top KPI Cards (Hidden in Print) -->
 <div class="kpi-grid">
     <div class="kpi-card bg-plan">
         <h4>Total Client Value (Revenue)</h4>
         <h2>₹ {{ total_client_value | inr }}</h2>
     </div>
     <div class="kpi-card bg-actual">
-        <h4>Actual Incurred (Purchase + Exp)</h4>
-        <h2>₹ {{ total_actual_cost | inr }}</h2>
+        <h4>Total Actual Purchase (Material)</h4>
+        <h2>₹ {{ total_actual_pur | inr }}</h2>
     </div>
     <div class="kpi-card bg-forecast">
-        <h4>Projected Final Profit</h4>
-        <h2 class="{% if projected_profit >= 0 %}profit{% else %}loss{% endif %}">₹ {{ projected_profit | inr }}</h2>
+        <h4>Final Net Profit (After All Exp)</h4>
+        <h2 class="{% if final_net_profit >= 0 %}profit{% else %}loss{% endif %}">₹ {{ final_net_profit | inr }}</h2>
     </div>
 </div>
 
-<div class="card">
-    <h3>Item-wise PLAN - ACTUAL - FORECAST</h3>
+<!-- ========================================== -->
+<!-- PRINT AREA STARTS HERE (Only this will print) -->
+<!-- ========================================== -->
+<div class="card print-area">
+    
+    <!-- Print Header -->
+    <div style="text-align: center; margin-bottom: 20px;">
+        <h3 style="margin: 0; color: #0a2240;">Item-wise PLAN - ACTUAL - FORECAST</h3>
+        <p style="margin: 5px 0; font-size: 14px;">Project: <strong>{{ project['project_name'] }}</strong></p>
+    </div>
+
     <div class="table-wrap">
         <table>
             <thead>
@@ -48,7 +93,6 @@
                     <th>Client Value (₹)</th>
                     <th>Plan Cost (Target) (₹)</th>
                     <th>Actual Purchase (₹)</th>
-                    <th>Actual Expense (₹)</th>
                     <th>Forecast Cost (₹)</th>
                     <th>Projected Total Cost (₹)</th>
                     <th>Projected Profit (₹)</th>
@@ -62,28 +106,48 @@
                     <td>{{ row.client_value | inr }}</td>
                     <td class="bg-plan">{{ row.plan_cost | inr }}</td>
                     <td class="bg-actual">{{ row.actual_pur | inr }}</td>
-                    <td class="bg-actual">{{ row.actual_acc | inr }}</td>
                     <td class="bg-forecast">{{ row.forecast_cost | inr }}</td>
                     <td style="font-weight: bold;">{{ row.total_projected_cost | inr }}</td>
                     <td class="{% if row.projected_profit >= 0 %}profit{% else %}loss{% endif %}">{{ row.projected_profit | inr }}</td>
                 </tr>
                 {% else %}
-                <tr><td colspan="9" style="text-align: center;">No BOQ items found.</td></tr>
+                <tr><td colspan="8" style="text-align: center;">No BOQ items found.</td></tr>
                 {% endfor %}
             </tbody>
+            {% if cost_data %}
             <tfoot>
-                <tr style="background: #0a2240; color: white; font-weight: bold;">
-                    <td colspan="2" style="text-align: right;">GRAND TOTAL</td>
-                    <td>₹ {{ total_client_value | inr }}</td>
-                    <td>₹ {{ total_plan_cost | inr }}</td>
-                    <td>₹ {{ total_actual_pur | inr }}</td>
-                    <td>₹ {{ total_actual_acc | inr }}</td>
-                    <td>₹ {{ total_forecast_cost | inr }}</td>
-                    <td>₹ {{ total_projected_cost | inr }}</td>
-                    <td class="{% if projected_profit >= 0 %}profit{% else %}loss{% endif %}">₹ {{ projected_profit | inr }}</td>
+                <tr style="background: #e2e8f0; font-weight: bold; font-size: 14px;">
+                    <td colspan="2" style="text-align: right; color: #0a2240;">GRAND TOTAL:</td>
+                    <td style="color: #0a2240;">₹ {{ total_client_value | inr }}</td>
+                    <td style="color: #0a2240;">₹ {{ total_plan_cost | inr }}</td>
+                    <td style="color: #0a2240;">₹ {{ total_actual_pur | inr }}</td>
+                    <td style="color: #0a2240;">₹ {{ total_forecast_cost | inr }}</td>
+                    <td style="color: #0a2240;">₹ {{ total_projected_cost | inr }}</td>
+                    <td class="{% if total_item_profit >= 0 %}profit{% else %}loss{% endif %}">₹ {{ total_item_profit | inr }}</td>
                 </tr>
             </tfoot>
+            {% endif %}
+        </table>
+    </div>
+
+    <!-- Project-Level Summary Box -->
+    <div class="summary-box">
+        <table>
+            <tr>
+                <td style="text-align: right; font-weight: bold;">Total Item-wise Profit (Purchase + Forecast):</td>
+                <td class="{% if total_item_profit >= 0 %}profit{% else %}loss{% endif %}">₹ {{ total_item_profit | inr }}</td>
+            </tr>
+            <tr>
+                <td style="text-align: right; font-weight: bold; color: #e31e24;">Less: Project Other Expenses (Labour/Subcon):</td>
+                <td style="color: #e31e24; font-weight: bold;">- ₹ {{ total_other_exp | inr }}</td>
+            </tr>
+            <tr class="total-row">
+                <td style="text-align: right;">Final Project Net Profit:</td>
+                <td class="{% if final_net_profit >= 0 %}profit{% else %}loss{% endif %}" style="color: {% if final_net_profit >= 0 %}#4ade80{% else %}#f87171{% endif %};">₹ {{ final_net_profit | inr }}</td>
+            </tr>
         </table>
     </div>
 </div>
+<!-- PRINT AREA ENDS HERE -->
+
 {% endblock %}

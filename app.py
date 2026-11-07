@@ -415,16 +415,28 @@ def update_tender_status(id, status):
 def convert_tender(id):
     if not session.get("username"): return redirect(url_for("login"))
     conn = get_db(); t = conn.execute("SELECT * FROM tenders WHERE id=?", (id,)).fetchone()
+    
     if t and t['status'] == 'Won':
+        # 1. Check if Client exists in Party Master
         if not conn.execute("SELECT id FROM parties WHERE party_name=? AND party_type='Debtor'", (t['client_name'],)).fetchone():
-            flash(f"Client '{t['client_name']}' not found in Party Master. Create first.", "error")
+            flash(f"Client '{t['client_name']}' not found in Party Master. Please create the party first.", "error")
             conn.close(); return redirect(url_for("parties", new_name=t['client_name']))
+        
+        # 2. Check if Project already exists
         if not conn.execute("SELECT id FROM projects WHERE project_name=?", (t['tender_no'],)).fetchone():
+            # Create Project
             conn.execute("INSERT INTO projects (project_name, client_name, project_value, status) VALUES (?, ?, ?, 'In Progress')", (t['tender_no'], t['client_name'], t['estimated_value']))
+            
+            # Copy Items to BOQ
             for item in conn.execute("SELECT * FROM tender_items WHERE tender_id=?", (id,)).fetchall():
                 conn.execute("INSERT INTO poq (project_name, material_name, unit, quantity, rate, amount, supply_rate, erection_rate) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (t['tender_no'], item['description'], item['unit'], item['quantity'], item['rate'], item['amount'], item['supply_rate'], item['erection_rate']))
-            conn.commit(); flash("Tender converted to Project!", "success")
-        else: flash("Project already exists!", "error")
+            
+            conn.commit(); flash("Tender successfully converted to Project & BOQ!", "success")
+        else: 
+            flash("Project already exists for this Tender!", "error")
+    else:
+        flash("Tender status must be 'Won' to convert.", "error")
+        
     conn.close(); return redirect(url_for("tenders"))
 
 # ------------------------------------------------------------------

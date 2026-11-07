@@ -209,41 +209,6 @@
 
 </div>
 
-<!-- ============ RECENT SALES BILLS ============ -->
-{% if not is_supervisor %}
-<div class="panel">
-    <h3>Recent Sales Bills</h3>
-    <div class="table-wrap">
-        <table>
-            <thead>
-                <tr>
-                    <th>Bill No</th>
-                    <th>Date</th>
-                    <th>Project</th>
-                    <th>Total Value (₹)</th>
-                    <th class="no-print" style="text-align: center;">Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for b in recent_bills %}
-                <tr>
-                    <td><strong>{{ b['bill_no'] }}</strong></td>
-                    <td>{{ b['bill_date'] | dateformat }}</td>
-                    <td>{{ b['project_name'] }}</td>
-                    <td style="font-weight: bold; color: #0d47a1;">₹ {{ b['total_value'] | inr }}</td>
-                    <td class="no-print" style="text-align: center;">
-                        <a href="{{ url_for('print_bill', id=b['id']) }}" target="_blank" class="btn" style="padding: 4px 10px; font-size: 12px; background: #0a2240;">🖨️ Print</a>
-                    </td>
-                </tr>
-                {% else %}
-                <tr><td colspan="5" style="text-align: center;">No bills generated yet.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
-{% endif %}
-
 {% endblock %}
 
 {% block scripts %}

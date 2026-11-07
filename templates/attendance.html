@@ -1,57 +1,65 @@
 {% extends "base.html" %}
-{% block title %}Mark Attendance{% endblock %}
-{% block page_title %}Daily Labour Attendance{% endblock %}
+{% block title %}Salary Report{% endblock %}
+{% block page_title %}Monthly Attendance & Salary Report{% endblock %}
 
 {% block content %}
 <div class="card no-print" style="background: #f9fbfc;">
-    <form method="GET" style="display: flex; gap: 15px; align-items: center;">
-        <label style="margin: 0; font-weight: bold;">Select Date:</label>
-        <input type="date" name="date" value="{{ selected_date }}" onchange="this.form.submit()" style="padding: 10px; border-radius: 6px; border: 1px solid #ccc;">
+    <form method="GET" style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+        <label style="margin: 0; font-weight: bold;">Select Month:</label>
+        <input type="month" name="month" value="{{ selected_month }}" onchange="this.form.submit()" style="padding: 10px; border-radius: 6px; border: 1px solid #ccc;">
+        <button onclick="window.print()" type="button" class="btn" style="margin-left: auto; background: #0a2240;">🖨️ Print Report</button>
     </form>
 </div>
 
-<form method="POST">
-    <input type="hidden" name="attendance_date" value="{{ selected_date }}">
-    <div class="card">
-        <!-- FIX: Date Format applied -->
-        <h3>Attendance for {{ selected_date | dateformat }}</h3>
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Labour Name</th>
-                        <th>Designation</th>
-                        <th>Project</th>
-                        <th style="text-align: center;">Status (Present / Absent)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for l in labours %}
-                    {% set current_status = att_dict.get(l['id']|string) %}
-                    <tr>
-                        <td><strong>{{ l['labour_name'] }}</strong></td>
-                        <td>{{ l['designation'] or '-' }}</td>
-                        <td>
-                            <input type="text" name="project_{{ l['id'] }}" value="{{ current_status['project_name'] if current_status else (l['project_name'] or '') }}" placeholder="Project Name" style="padding: 6px; font-size: 13px; width: 100%; max-width: 200px;">
-                        </td>
-                        <td style="text-align: center; white-space: nowrap;">
-                            <label style="display: inline-block; margin-right: 15px; cursor: pointer;">
-                                <input type="radio" name="status_{{ l['id'] }}" value="Present" {% if current_status and current_status['status'] == 'Present' %}checked{% elif not current_status %}checked{% endif %}> Present
-                            </label>
-                            <label style="display: inline-block; cursor: pointer; color: red;">
-                                <input type="radio" name="status_{{ l['id'] }}" value="Absent" {% if current_status and current_status['status'] == 'Absent' %}checked{% endif %}> Absent
-                            </label>
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr><td colspan="4" style="text-align: center;">No labourers added yet. Please add labour first.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% if labours %}
-        <button type="submit" class="btn" style="margin-top: 20px; width: 100%; font-size: 16px; padding: 12px;">Save Attendance</button>
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h3 style="margin: 0;">Salary Report for {{ selected_month }}</h3>
+        
+        <!-- NEW: Pay Salary Button -->
+        {% if report_data and ns.total_payout > 0 %}
+        <form method="POST" action="{{ url_for('pay_labour_salary') }}" onsubmit="return confirm('Save this total amount as an Expense in Accounts?');">
+            <input type="hidden" name="month" value="{{ selected_month }}">
+            <input type="hidden" name="total_amount" value="{{ ns.total_payout }}">
+            <button type="submit" class="btn" style="background: #176b38; padding: 10px 20px;">💰 Record as Expense</button>
+        </form>
         {% endif %}
     </div>
-</form>
+    
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Labour Name</th>
+                    <th>Designation</th>
+                    <th>Project</th>
+                    <th>Daily Wage (₹)</th>
+                    <th>Present Days</th>
+                    <th>Total Salary (₹)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set ns = namespace(total_payout=0) %}
+                {% for item in report_data %}
+                    {% set ns.total_payout = ns.total_payout + (item.total_salary or 0) %}
+                <tr>
+                    <td><strong>{{ item.name }}</strong></td>
+                    <td>{{ item.designation or '-' }}</td>
+                    <td>{{ item.project or '-' }}</td>
+                    <td>{{ (item.wage or 0) | inr }}</td>
+                    <td style="font-weight: bold; color: #0d47a1;">{{ item.present_days }}</td>
+                    <td style="font-weight: bold; color: #176b38;">₹ {{ (item.total_salary or 0) | inr }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" style="text-align: center;">No data found for this month.</td></tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr style="background: #e2e8f0;">
+                    <td colspan="5" style="text-align: right; font-weight: bold; font-size: 16px;">Total Payout for {{ selected_month }}:</td>
+                    <td style="font-weight: bold; font-size: 16px; color: #176b38;">₹ {{ ns.total_payout | inr }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
 {% endblock %}

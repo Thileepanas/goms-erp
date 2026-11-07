@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+    {% extends "base.html" %}
 
 {% block title %}Sales / Purchase Entry{% endblock %}
 {% block page_title %}Sales / Purchase Entry{% endblock %}
@@ -171,7 +171,38 @@
         </form>
     </div>
 </div>
-
+<!-- Pending Payments List -->
+{% if pending_payments %}
+<div class="card" style="background: #fff8e1; border-left: 4px solid #ff9800; margin-bottom: 20px;">
+    <h3 style="margin-top: 0; color: #e65100;">⏳ Payment Pending (MD Approved Bills)</h3>
+    <div class="table-wrap">
+        <table style="width: 100%; background: white;">
+            <thead>
+                <tr style="background: #f1f5f9;">
+                    <th>Bill No</th>
+                    <th>Vendor</th>
+                    <th>Approved Amt (₹)</th>
+                    <th style="text-align: center;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in pending_payments %}
+                <tr>
+                    <td><strong>{{ p['invoice_number'] }}</strong></td>
+                    <td>{{ p['supplier_name'] }}</td>
+                    <td style="font-weight: bold; color: #0d47a1;">{{ p['approved_amount'] | inr }}</td>
+                    <td style="text-align: center;">
+                        <form method="POST" action="{{ url_for('pay_purchase_bill', id=p['id'], project=selected_project) }}">
+                            <button type="submit" class="btn" style="background: #0d47a1; padding: 6px 12px; font-size: 12px;" onclick="return confirm('Confirm this payment?');">Pay Now ✅</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
 <!-- ================= 2. PAYMENT / EXPENSE ENTRY ================= -->
 <div id="tab2" class="tab-content {% if active_tab == 'tab2' or edit_account_data %}active{% endif %}">
     <div class="card" style="margin-top: 10px;">
@@ -190,6 +221,8 @@
                         <select name="transaction_type" id="trans_type" required onchange="toggleBillDropdown()">
                             <option value="Income" {% if edit_account_data and edit_account_data.transaction_type == 'Income' %}selected{% endif %}>Cash Inflow (Payment Received)</option>
                             <option value="Expense" {% if edit_account_data and edit_account_data.transaction_type == 'Expense' %}selected{% endif %}>Cash Outflow (Expense Paid)</option>
+                            <option value="Credit Note" {% if edit_account_data and edit_account_data.transaction_type == 'Credit Note' %}selected{% endif %}>Credit Note (Sales Return)</option>
+                            <option value="Debit Note" {% if edit_account_data and edit_account_data.transaction_type == 'Debit Note' %}selected{% endif %}>Debit Note (Purchase Return)</option>
                         </select>
                     </div>
                     <div>
@@ -342,9 +375,12 @@
                         <td>{{ a['paid_name'] or '-' }}</td>
                         <td>
                             {% if a['transaction_type'] == 'Income' %}<span style="color: green; font-weight: bold;">Inflow</span>
-                            {% else %}<span style="color: red; font-weight: bold;">Outflow</span>{% endif %}
+                            {% elif a['transaction_type'] == 'Expense' %}<span style="color: red; font-weight: bold;">Outflow</span>
+                            {% elif a['transaction_type'] == 'Credit Note' %}<span style="color: #ff9800; font-weight: bold;">Cr. Note</span>
+                            {% elif a['transaction_type'] == 'Debit Note' %}<span style="color: #0d47a1; font-weight: bold;">Dr. Note</span>
+                            {% else %}<span>{{ a['transaction_type'] }}</span>{% endif %}
                         </td>
-                        <td style="font-weight: bold; color: {% if a['transaction_type'] == 'Income' %}green{% else %}red{% endif %};">
+                        <td style="font-weight: bold; color: {% if a['transaction_type'] in ('Income', 'Debit Note') %}green{% else %}red{% endif %};">
                             {{ a['amount'] | inr }}
                         </td>
                         <td class="no-print">
@@ -392,7 +428,7 @@ function openTab(tabName, evt) {
 // --- Toggle Bill Linking Dropdown ---
 function toggleBillDropdown() {
     const type = document.getElementById("trans_type").value;
-    document.getElementById("bill_dropdown_div").style.display = (type === "Income") ? "block" : "none";
+    document.getElementById("bill_dropdown_div").style.display = (type === "Expense") ? "none" : "block";
 }
 
 // --- HTML escape for building input value attribute ---

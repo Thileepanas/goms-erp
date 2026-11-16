@@ -15,6 +15,7 @@
 <div class="card" style="background: #f9fbfc; border-top: 4px solid var(--primary-blue);">
     <h3>Modify Party / Vendor</h3>
     <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="grid-form">
             <div class="input-group">
                 <label>GSTIN *</label>

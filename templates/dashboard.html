@@ -8,60 +8,43 @@
 {% set is_supervisor = session.get('role') == 'Site Supervisor' %}
 
 <style>
-    /* Changed to 3 cards */
-    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 30px; }
-    @media (max-width: 900px) { .stats-grid { grid-template-columns: 1fr; } }
+    /* Stats Grid */
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 30px; }
+    @media (max-width: 1100px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 600px) { .stats-grid { grid-template-columns: 1fr; } }
 
-    .stat-card { background: white; padding: 18px 15px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-left: 5px solid var(--primary-blue); display: flex; flex-direction: column; justify-content: center; min-height: 100px; transition: transform 0.2s; }
-    .stat-card:hover { transform: translateY(-2px); }
-    .stat-card h4 { color: #666; font-size: 11px; margin-bottom: 8px; text-transform: uppercase; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .stat-card h2 { color: var(--primary-blue); font-size: 22px; margin: 0; font-weight: 800; }
-    .stat-card .stat-sub { font-size: 11px; color: #999; margin-top: 4px; }
+    .stat-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-left: 5px solid var(--primary-blue); display: flex; flex-direction: column; justify-content: center; min-height: 110px; transition: transform 0.2s; }
+    .stat-card:hover { transform: translateY(-3px); box-shadow: 0 6px 16px rgba(0,0,0,0.08); }
+    .stat-card h4 { color: #666; font-size: 12px; margin-bottom: 8px; text-transform: uppercase; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0.5px; }
+    .stat-card h2 { color: var(--primary-blue); font-size: 24px; margin: 0; font-weight: 800; }
+    .stat-card .stat-sub { font-size: 11px; color: #999; margin-top: 5px; }
     .stat-card.blue { border-left-color: var(--primary-blue); }
-    .stat-card.green { border-left-color: #176b38; }
-    .stat-card.red { border-left-color: var(--accent-red); }
+    .stat-card.green { border-left-color: #2A9D8F; }
+    .stat-card.red { border-left-color: #E76F51; }
+    .stat-card.orange { border-left-color: #F4A261; }
 
-    .welcome-banner { background: linear-gradient(135deg, var(--primary-blue), #123a66); color: white; padding: 22px 28px; border-radius: 8px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
+    /* Welcome Banner */
+    .welcome-banner { background: linear-gradient(135deg, var(--primary-blue), #123a66); color: white; padding: 22px 28px; border-radius: 8px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; box-shadow: 0 4px 12px rgba(10, 34, 64, 0.2); }
     .welcome-banner h1 { margin-bottom: 6px; font-size: 22px; }
     .welcome-banner p { color: rgba(255,255,255,0.85); font-size: 13px; }
     .welcome-banner .banner-meta { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 8px; font-size: 12px; color: rgba(255,255,255,0.7); }
     .welcome-banner .banner-meta span strong { color: white; }
 
-        /* NEW: Slide in and Stop Animation */
-    .marquee-container {
-        overflow: hidden;
-        width: 100%;
-        position: relative;
-        display: flex;
-        padding: 5px 0;
-    }
-    .marquee-text {
-        display: inline-block;
-        white-space: nowrap;
-        margin: 0;
-        font-size: 22px;
-        /* FIX: Animation runs once (forwards), takes 2.5 seconds */
-        animation: slide-left 2.5s ease-out forwards; 
-    }
+    .marquee-container { overflow: hidden; width: 100%; position: relative; display: flex; padding: 5px 0; }
+    .marquee-text { display: inline-block; white-space: nowrap; margin: 0; font-size: 22px; animation: slide-left 2.5s ease-out forwards; }
     
-    /* Animation Keyframes */
     @keyframes slide-left {
-        0% { 
-            transform: translateX(100%); /* Starts from right side */
-            opacity: 0; 
-        }
-        100% { 
-            transform: translateX(0); /* Stops at its original position */
-            opacity: 1; 
-        }
+        0% { transform: translateX(100%); opacity: 0; }
+        100% { transform: translateX(0); opacity: 1; }
     }
 
+    /* Charts Layout */
     .dashboard-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
     .dashboard-layout.single { grid-template-columns: 1fr; }
     @media (max-width: 900px) { .dashboard-layout { grid-template-columns: 1fr; } }
 
     .panel { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-    .panel h3 { color: var(--primary-blue); border-bottom: 2px solid var(--accent-red); padding-bottom: 5px; display: inline-block; margin-bottom: 15px; }
+    .panel h3 { color: var(--primary-blue); border-bottom: 2px solid var(--accent-red); padding-bottom: 5px; display: inline-block; margin-bottom: 15px; font-size: 16px; font-weight: 700; }
 
     .alert-list { display: flex; flex-direction: column; }
     a.alert-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 5px; border-bottom: 1px solid #eee; color: inherit; text-decoration: none; transition: 0.2s; border-radius: 4px; }
@@ -70,18 +53,18 @@
     .alert-item .alert-text strong { display: block; font-size: 14px; color: var(--primary-blue); }
     .alert-item .alert-text span { font-size: 12px; color: #666; }
     .alert-badge { background: #e31e24; color: white; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; white-space: nowrap; }
-    .alert-badge.warning { background: #ff9800; }
+    .alert-badge.warning { background: #F4A261; }
     .alert-badge.blue { background: #0d47a1; }
-    .alert-badge.green { background: #176b38; }
+    .alert-badge.green { background: #2A9D8F; }
 
     .quick-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 5px; }
     .quick-actions a { display: block; padding: 14px 15px; text-align: center; border-radius: 6px; font-weight: 600; font-size: 13px; text-decoration: none; color: white; transition: 0.3s; }
-    .qa-bill { background: #176b38; } .qa-bill:hover { background: #11522a; }
+    .qa-bill { background: #2A9D8F; } .qa-bill:hover { background: #21867a; }
     .qa-po { background: #0a2240; } .qa-po:hover { background: #123a66; }
-    .qa-issue { background: #e31e24; } .qa-issue:hover { background: #b81319; }
+    .qa-issue { background: #E76F51; } .qa-issue:hover { background: #d15f43; }
     .qa-pay { background: #0d47a1; } .qa-pay:hover { background: #083378; }
 
-    .chart-wrap { position: relative; height: 240px; width: 100%; }
+    .chart-wrap { position: relative; height: 260px; width: 100%; }
 </style>
 
 <!-- WELCOME BANNER -->
@@ -100,12 +83,15 @@
     <div style="font-size: 50px; opacity: 0.5;">⚡</div>
 </div>
 
-<!-- KPI CARDS (Reduced to 3) -->
-{% set role = session.get('role', 'Admin') %}
-
+<!-- KPI CARDS -->
 <div class="stats-grid">
-    
-    {% if role in ['Admin', 'GM', 'Accountant'] %}
+    <div class="stat-card blue">
+        <h4>Total Projects</h4>
+        <h2>{{ total_projects or '0' }}</h2>
+        <span class="stat-sub">Active projects in system</span>
+    </div>
+
+    {% if not is_supervisor %}
     <div class="stat-card green">
         <h4>Project Value</h4>
         <h2>₹ {{ total_project_value | inr }}</h2>
@@ -117,38 +103,19 @@
         <h2>₹ {{ total_sales | inr }}</h2>
         <span class="stat-sub">Billed to clients</span>
     </div>
-    {% endif %}
-
-    {% if role in ['Admin', 'Store Keeper', 'Site Supervisor'] %}
-    <div class="stat-card blue">
+    
+    <div class="stat-card orange">
         <h4>Low Stock Alerts</h4>
         <h2>{{ low_stock_count }}</h2>
         <span class="stat-sub">Items below reorder level</span>
     </div>
     {% endif %}
-
-    {% if role in ['Admin', 'GM', 'Site Supervisor'] %}
-    <div class="stat-card blue">
-        <h4>Active Projects</h4>
-        <h2>{{ total_projects or '0' }}</h2>
-        <span class="stat-sub">Ongoing projects</span>
-    </div>
-    {% endif %}
 </div>
 
-<!-- CHARTS SECTION -->
+<!-- CHARTS SECTION (Project Status First, Cash Flow Second) -->
 <div class="dashboard-layout">
-    <!-- Cash Flow Chart -->
-    {% if not is_supervisor %}
-    <div class="panel">
-        <h3>Cash Flow (Last 6 Months)</h3>
-        <div class="chart-wrap">
-            <canvas id="cashFlowChart"></canvas>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Project Status Chart -->
+    
+    <!-- 1. Project Status Chart (Left) -->
     <div class="panel">
         <h3>Project Status Breakdown</h3>
         {% if status_labels %}
@@ -159,6 +126,16 @@
         <p style="text-align: center; color: #999; padding: 40px 0;">No projects created yet.</p>
         {% endif %}
     </div>
+
+    <!-- 2. Cash Flow Chart (Right) -->
+    {% if not is_supervisor %}
+    <div class="panel">
+        <h3>Cash Flow (Last 6 Months)</h3>
+        <div class="chart-wrap">
+            <canvas id="cashFlowChart"></canvas>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <!-- ALERTS & QUICK ACTIONS -->
@@ -217,8 +194,41 @@
 
 {% block scripts %}
 <script>
+// ===== 1. Project Status (Doughnut Chart) - Professional Colors =====
+document.addEventListener("DOMContentLoaded", function() {
+    const psCtx = document.getElementById('projectStatusChart');
+    if (psCtx) {
+        new Chart(psCtx.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: {{ status_labels | tojson }},
+                datasets: [{
+                    data: {{ status_counts | tojson }},
+                    backgroundColor: [
+                        '#264653', // Deep Corporate Blue
+                        '#2A9D8F', // Muted Teal
+                        '#E9C46A', // Sand/Yellow
+                        '#F4A261', // Muted Orange
+                        '#E76F51', // Coral Red
+                        '#6D597A'  // Muted Purple
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { font: { size: 12 }, padding: 20 } }
+                }
+            }
+        });
+    }
+});
+
 {% if not is_supervisor %}
-// ===== Cash Flow Chart =====
+// ===== 2. Cash Flow Chart (Bar Chart) - Professional Colors =====
 document.addEventListener("DOMContentLoaded", function() {
     const cfCtx = document.getElementById('cashFlowChart');
     if (cfCtx) {
@@ -230,13 +240,13 @@ document.addEventListener("DOMContentLoaded", function() {
                     {
                         label: 'Income (Inflow)',
                         data: {{ cash_flow_income | tojson }},
-                        backgroundColor: '#176b38',
+                        backgroundColor: '#2A9D8F', // Professional Teal Green
                         borderRadius: 4
                     },
                     {
                         label: 'Expense (Outflow)',
                         data: {{ cash_flow_expense | tojson }},
-                        backgroundColor: '#e31e24',
+                        backgroundColor: '#E76F51', // Professional Coral Red
                         borderRadius: 4
                     }
                 ]
@@ -245,7 +255,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { position: 'bottom', labels: { font: { size: 12 } } }
+                    legend: { position: 'bottom', labels: { font: { size: 12 }, padding: 20 } }
                 },
                 scales: {
                     y: { beginAtZero: true, grid: { color: '#f0f0f0' } },
@@ -256,31 +266,5 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 });
 {% endif %}
-
-// ===== Project Status (Doughnut) =====
-document.addEventListener("DOMContentLoaded", function() {
-    const psCtx = document.getElementById('projectStatusChart');
-    if (psCtx) {
-        new Chart(psCtx.getContext('2d'), {
-            type: 'doughnut',
-            data: {
-                labels: {{ status_labels | tojson }},
-                datasets: [{
-                    data: {{ status_counts | tojson }},
-                    backgroundColor: ['#0a2240', '#176b38', '#e31e24', '#ff9800', '#6a1b9a', '#0d47a1'],
-                    borderWidth: 2,
-                    borderColor: '#fff'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { position: 'bottom', labels: { font: { size: 12 } } }
-                }
-            }
-        });
-    }
-});
 </script>
 {% endblock %}

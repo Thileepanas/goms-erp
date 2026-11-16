@@ -1,0 +1,20 @@
+<header class="topbar">
+        
+        <div class="topbar-left">
+            <button class="menu-toggle-btn" id="sidebarToggle" title="Toggle Menu">☰</button>
+            <h2>{% block page_title %}{% endblock %}</h2>
+        </div>
+
+        <form action="{{ url_for('search') }}" method="GET" class="search-form">
+            <input type="text" name="q" placeholder="Search...">
+            <button type="submit">🔍</button>
+        </form>
+
+        <div class="user-area">
+            <span class="user-info">
+                {{ session['username'] }}
+                <span class="role-badge {{ role_class }}">{{ user_role }}</span>
+            </span>
+            <a href="{{ url_for('logout') }}" class="btn-logout">Logout</a>
+        </div>
+    </header>

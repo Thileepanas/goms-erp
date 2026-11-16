@@ -1,0 +1,12 @@
+<!-- ============ FLOATING QUICK ACTIONS ============ -->
+<div class="quick-action-btn" onclick="toggleQuickMenu()" title="Quick Actions">⚡</div>
+
+<div class="quick-menu" id="quickMenu">
+    <a href="{{ url_for('accounts_entry', tab='tab1') }}">+ New Bill Entry <span class="shortcut-key">Ctrl+Alt+B</span></a>
+    <a href="{{ url_for('accounts_entry', tab='tab2') }}">+ Payment Entry <span class="shortcut-key">Ctrl+Alt+P</span></a>
+    <a href="{{ url_for('indents') }}">+ New Indent <span class="shortcut-key">Ctrl+Alt+I</span></a>
+    <a href="{{ url_for('work_progress') }}">📊 Work Progress <span class="shortcut-key">Ctrl+Alt+W</span></a>
+    <a href="{{ url_for('client_ledger') }}">📒 Client Ledger <span class="shortcut-key">Ctrl+Alt+L</span></a>
+    <a href="{{ url_for('accounts') }}">💰 Project P&L <span class="shortcut-key">Ctrl+Alt+C</span></a>
+    <a href="{{ url_for('dashboard') }}">🏠 Dashboard <span class="shortcut-key">Ctrl+Alt+D</span></a>
+</div>

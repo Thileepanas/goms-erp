@@ -8,6 +8,7 @@
     <p style="color: #666; margin-bottom: 20px;">Project: <strong>{{ wp['project_name'] }}</strong></p>
     
     <form method="POST" action="{{ url_for('edit_work_progress', id=wp['id']) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="grid-3">
             <div>
                 <label>Work Date *</label>

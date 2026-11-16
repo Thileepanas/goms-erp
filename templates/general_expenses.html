@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}General Expenses{% endblock %}
+{% block page_title %}General / Office Expenses{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: 1fr 2fr; gap: 20px;">
+    
+    <!-- Add Expense Form -->
+    <div class="card" style="border-top: 4px solid var(--accent-red);">
+        <h3>Add Expense</h3>
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            
+            <div style="margin-bottom: 15px;">
+                <label>Date *</label>
+                <input type="date" name="date" value="{{ today }}" required style="padding: 10px; width: 100%;">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label>Expense Category *</label>
+                <select name="category" required style="padding: 10px; width: 100%;">
+                    <option value="">-- Select Category --</option>
+                    <option value="Office Rent">Office Rent</option>
+                    <option value="Salary">Salary</option>
+                    <option value="Electricity">Electricity Charges</option>
+                    <option value="Telephone & Internet">Telephone & Internet</option>
+                    <option value="Printing & Stationery">Printing & Stationery</option>
+                    <option value="Travel">Travel / Conveyance</option>
+                    <option value="Legal">Legal & Professional</option>
+                    <option value="Repairs">Repairs & Maintenance</option>
+                    <option value="Bank Charges">Bank Charges</option>
+                    <option value="Other">Other Expenses</option>
+                </select>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <label>Description *</label>
+                <input type="text" name="description" required placeholder="e.g. Paid office rent for Nov" style="padding: 10px; width: 100%;">
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <label>Paid To</label>
+                <input type="text" name="paid_name" placeholder="Vendor / Person Name" style="padding: 10px; width: 100%;">
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <label>Amount (₹) *</label>
+                <input type="number" name="amount" step="0.01" min="0" required placeholder="0.00" style="padding: 10px; width: 100%;">
+            </div>
+
+            <button type="submit" class="btn btn-red" style="width: 100%;">Save Expense</button>
+        </form>
+    </div>
+
+    <!-- Expense History -->
+    <div class="card">
+        <!-- Header & Filter -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+            <h3 style="margin: 0; border: none;">Expense History</h3>
+            
+            <!-- புது டேட் ஃபில்டர் ஃபார்ம் -->
+            <form method="GET" style="display: flex; gap: 10px; align-items: end; background: #f9fbfc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                <div>
+                    <label style="font-size: 11px; margin-bottom: 3px; display: block;">From</label>
+                    <input type="date" name="start_date" value="{{ start_date }}" style="padding: 6px; font-size: 12px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+                <div>
+                    <label style="font-size: 11px; margin-bottom: 3px; display: block;">To</label>
+                    <input type="date" name="end_date" value="{{ end_date }}" style="padding: 6px; font-size: 12px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+                <button type="submit" class="btn" style="padding: 6px 12px; font-size: 12px;">Filter</button>
+            </form>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Category</th>
+                        <th>Description</th>
+                        <th>Paid To</th>
+                        <th style="text-align: right;">Amount (₹)</th>
+                        <th style="text-align: center;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for e in expenses %}
+                    <tr>
+                        <td>{{ e['transaction_date'] | dateformat }}</td>
+                        <td>
+                            <span style="background: #e3f2fd; color: #0d47a1; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">
+                                {{ e['category'] or 'General' }}
+                            </span>
+                        </td>
+                        <td>{{ e['description'] }}</td>
+                        <td>{{ e['paid_name'] or '-' }}</td>
+                        <td style="text-align: right; font-weight: bold; color: #e31e24;">{{ e['amount'] | inr }}</td>
+                        <td style="text-align: center;">
+                            {% if is_admin_or_gm %}
+                            <a href="{{ url_for('delete_account_entry', id=e['id'], project='General', tab='tab4') }}" class="btn btn-red" style="padding: 4px 8px; font-size: 12px;" onclick="return confirm('Delete this expense?');">❌</a>
+                            {% else %}
+                            <span style="color: #999; font-size: 12px;">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 20px; color: #999;">
+                            No expenses found for the selected date range.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

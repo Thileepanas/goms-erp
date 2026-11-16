@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Import Tally Data{% endblock %}
+{% block page_title %}Import Tally Master Data{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 700px; margin: 0 auto; background: #f9fbfc;">
+    <h3>Upload Tally Data (Excel)</h3>
+    <p style="color: #666; font-size: 14px; margin-bottom: 20px;">
+        உங்க Excel-ல இந்த காலம்கள் கண்டிப்பா இருக்கணும்:<br>
+        <b>Date | Type | Party Name | Category | Invoice / Bill No | Amount</b>
+    </p>
+
+    <form method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div style="margin-bottom: 20px;">
+            <label>Select Excel File (.xlsx) *</label>
+            <input type="file" name="file" accept=".xlsx, .xls" required style="padding: 10px; width: 100%;">
+        </div>
+        <button type="submit" class="btn btn-green" style="width: 100%; padding: 12px; font-size: 16px;">Import Data</button>
+    </form>
+    
+    <div class="alert warning" style="margin-top: 20px;">
+        <strong>Note:</strong> 
+        <ul style="margin-top: 5px; margin-left: 20px; font-size: 13px;">
+            <li><b>Income/Expense:</b> P&L-க்கு எடுக்கப்படும் (Sales, Purchase, Rent).</li>
+            <li><b>Payment/Receipt:</b> Ledger-க்கு மட்டும் எடுக்கப்படும் (P&L-ஐ பாதிக்காது).</li>
+            <li>Party Name இல்லைனா தானாகவே Party Master-ல ஆட் ஆகும்.</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

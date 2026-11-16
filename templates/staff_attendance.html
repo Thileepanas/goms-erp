@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Staff Attendance{% endblock %}
+{% block page_title %}Staff Attendance (Machine Import / Manual){% endblock %}
+
+{% block content %}
+<div class="card" style="background: #f9fbfc;">
+    <h3>Upload Machine Attendance (Excel)</h3>
+    <p style="font-size: 13px; color: #666;">Excel format: <b>Emp Code | Date (YYYY-MM-DD) | Status (Present/Absent)</b></p>
+    <form method="POST" enctype="multipart/form-data" style="display: flex; gap: 15px; align-items: center;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="file" name="file" accept=".xlsx, .xls" required style="padding: 10px; border: 1px solid #ccc; border-radius: 6px; background: white; width: 100%; max-width: 350px;">
+        <button type="submit" name="import_excel" class="btn" style="background: #0d47a1;">📁 Import Excel</button>
+    </form>
+</div>
+
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h3 style="margin: 0; border: none;">Manual Attendance Entry</h3>
+        <form method="GET" style="display: flex; gap: 10px;">
+            <input type="date" name="date" value="{{ selected_date }}" onchange="this.form.submit()" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+        </form>
+    </div>
+    
+    <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="attendance_date" value="{{ selected_date }}">
+        
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr style="background: #f1f5f9;">
+                        <th>Emp Code</th>
+                        <th>Name</th>
+                        <th>Designation</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for e in employees %}
+                    
+                    <!-- சரி பண்ணின பகுதி இங்க தான் 👇 -->
+                    {% set att_record = att_dict.get(e.id|string, {}) %}
+                    {% set current_status = att_record['status'] if 'status' in att_record else 'Absent' %}
+                    
+                    <tr>
+                        <td><strong>{{ e.emp_code }}</strong></td>
+                        <td>{{ e.name }}</td>
+                        <td>{{ e.designation or '-' }}</td>
+                        <td>
+                            <select name="status_{{ e.id }}" style="padding: 6px; border-radius: 4px; font-weight: bold; color: {% if current_status == 'Present' %}green{% else %}red{% endif %};">
+                                <option value="Present" {% if current_status == 'Present' %}selected{% endif %}>Present</option>
+                                <option value="Absent" {% if current_status == 'Absent' %}selected{% endif %}>Absent</option>
+                                <option value="Half Day" {% if current_status == 'Half Day' %}selected{% endif %}>Half Day</option>
+                                <option value="Leave" {% if current_status == 'Leave' %}selected{% endif %}>Leave</option>
+                            </select>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="4" style="text-align: center;">No active employees found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <button type="submit" class="btn" style="width: 100%; margin-top: 15px; background: #176b38; padding: 12px;">Save Manual Attendance</button>
+    </form>
+</div>
+{% endblock %}

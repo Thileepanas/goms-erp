@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Dept Performance{% endblock %}
+{% block page_title %}Department-wise Performance Report{% endblock %}
+
+{% block content %}
+<div class="card no-print" style="background: #f9fbfc;">
+    <form method="GET" style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+        <div>
+            <label style="margin-bottom: 5px; display: block; font-weight: bold;">From Date:</label>
+            <input type="date" name="start_date" value="{{ start_date }}" style="padding: 10px; border-radius: 6px; border: 1px solid #ccc;">
+        </div>
+        <div>
+            <label style="margin-bottom: 5px; display: block; font-weight: bold;">To Date:</label>
+            <input type="date" name="end_date" value="{{ end_date }}" style="padding: 10px; border-radius: 6px; border: 1px solid #ccc;">
+        </div>
+        <button type="submit" class="btn" style="background: #0d47a1; padding: 10px 20px; margin-top: 20px;">Filter Report</button>
+        <button type="button" onclick="window.print()" class="btn" style="background: #0a2240; padding: 10px 20px; margin-top: 20px; margin-left: auto;">🖨️ Print</button>
+    </form>
+</div>
+
+<div class="grid-2" style="gap: 20px;">
+    <!-- BD Team -->
+    <div class="card" style="border-top: 4px solid #e31e24;">
+        <h3>📈 Business Development</h3>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px;">
+            <span>New Leads Generated:</span> <strong>{{ d.bd_leads }}</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 14px;">
+            <span>Leads Won / Converted:</span> <strong style="color: #176b38;">{{ d.bd_won }}</strong>
+        </div>
+    </div>
+
+    <!-- Procurement -->
+    <div class="card" style="border-top: 4px solid #ff9800;">
+        <h3>🛒 Procurement Team</h3>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px;">
+            <span>Total PO Created:</span> <strong>{{ d.proc_po }}</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px;">
+            <span>Purchase Bills:</span> <strong>{{ d.proc_bills }}</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 14px;">
+            <span>Total Purchase Value:</span> <strong style="color: #0d47a1;">₹ {{ d.proc_val | inr }}</strong>
+        </div>
+    </div>
+
+    <!-- Operations -->
+    <div class="card" style="border-top: 4px solid #0d47a1;">
+        <h3>🏗️ Site Operations</h3>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px;">
+            <span>Work Progress Value:</span> <strong style="color: #176b38;">₹ {{ d.ops_work_val | inr }}</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px;">
+            <span>Sales Bills Generated:</span> <strong>{{ d.ops_bills }}</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 14px;">
+            <span>Total Billed Amount:</span> <strong style="color: #0d47a1;">₹ {{ d.ops_bill_val | inr }}</strong>
+        </div>
+    </div>
+
+    <!-- Finance -->
+    <div class="card" style="border-top: 4px solid #176b38;">
+        <h3>💰 Finance & Accounts</h3>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px;">
+            <span>Cash Inflow (Collections):</span> <strong style="color: #176b38;">₹ {{ d.fin_in | inr }}</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 14px;">
+            <span>Cash Outflow (Expenses):</span> <strong style="color: #e31e24;">₹ {{ d.fin_out | inr }}</strong>
+        </div>
+    </div>
+</div>
+{% endblock %}

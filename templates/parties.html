@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+
+{% block title %}Party Master{% endblock %}
+{% block page_title %}Party / Vendor Management{% endblock %}
+
+{% block content %}
+<style>
+    .grid-form { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
+    @media(max-width: 768px) { .grid-form { grid-template-columns: 1fr; } }
+    
+    .input-group label { font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px; display: block; }
+    .input-group input, .input-group select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+</style>
+
+<div class="card" style="background: #f9fbfc; border-top: 4px solid var(--primary-blue);">
+    <h3>Add New Party / Vendor</h3>
+    <form id="addPartyForm" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="return_to_po" value="{{ request.args.get('return_to_po', '') }}">
+        <div class="grid-form">
+            <div class="input-group">
+                <label>GSTIN *</label>
+                <input type="text" name="gstin" id="gstin" required placeholder="e.g. 33AACFV0222D1ZY" maxlength="15" style="text-transform: uppercase;">
+                <small style="color: #666; font-size: 11px;">Type 15 digits to auto-fetch</small>
+            </div>
+            
+            <div class="input-group">
+                <label>Party Name *</label>
+                <input type="text" name="party_name" id="party_name" required placeholder="e.g. Sathyamoorthy & Co">
+            </div>
+
+            <div class="input-group">
+                <label>Party Type *</label>
+                <select name="party_type" required>
+                    <option value="Debtor">Debtor (Client / Customer)</option>
+                    <option value="Creditor">Creditor (Vendor / Supplier)</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label>Contact Number</label>
+                <input type="text" name="contact_number" placeholder="Phone Number" maxlength="10" pattern="[0-9]{10}" title="Enter 10 digit mobile number" oninput="this.value = this.value.replace(/[^0-9]/g, '');">
+            </div>
+
+            <div class="input-group">
+                <label>Email Address</label>
+                <input type="email" name="email" placeholder="Email">
+            </div>
+
+            <div class="input-group">
+                <label>Opening Balance (₹)</label>
+                <input type="number" name="opening_balance" step="0.01" min="0" value="0" placeholder="0.00" onkeypress="return event.charCode >= 48 && event.charCode <= 57 || event.charCode == 46">
+            </div>
+
+            <div class="input-group" style="grid-column: span 3;">
+                <label>Address</label>
+                <input type="text" name="address" id="address" placeholder="Full Address">
+            </div>
+        </div>
+        
+        <button type="submit" class="btn" style="margin-top: 15px; background: #176b38;">Save Party</button>
+    </form>
+</div>
+
+<div class="card">
+    <h3>Existing Parties</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Party Name</th>
+                    <th>Type</th>
+                    <th>GSTIN</th>
+                    <th>Contact</th>
+                    <th>Address</th>
+                    <th>Status</th>
+                    <th class="no-print" style="text-align: center;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in parties %}
+                <tr>
+                    <td><strong>{{ p['party_name'] }}</strong></td>
+                    <td>
+                        {% if p['party_type'] == 'Debtor' %}
+                            <span style="background: #e0f5e8; color: #176b38; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">Client</span>
+                        {% else %}
+                            <span style="background: #fff0f0; color: #b42318; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">Vendor</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ p['gstin'] or '-' }}</td>
+                    <td>{{ p['contact_number'] or '-' }}</td>
+                    <td>{{ p['address'] or '-' }}</td>
+                    
+                    <!-- STATUS COLUMN -->
+                    <td>
+                        {% if p['is_blocked'] == 1 %}
+                            <span style="background: #fef2f2; color: #991b1b; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">Blocked 🚫</span>
+                        {% else %}
+                            <span style="background: #ecfdf5; color: #065f46; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">Active ✅</span>
+                        {% endif %}
+                    </td>
+
+                    <!-- ACTION COLUMN -->
+                    <td class="no-print" style="text-align: center;">
+                        {% if is_admin_or_gm %}
+                            <div style="display: flex; gap: 5px; justify-content: center; flex-wrap: wrap;">
+                                <!-- Edit Button -->
+                                <a href="{{ url_for('edit_party', id=p.id) }}" class="btn" style="padding: 6px 12px; font-size: 12px; background: #0a2240;">Edit</a>
+                                
+                                <!-- Delete Button -->
+                                <a href="{{ url_for('delete_party', id=p.id) }}" class="btn btn-red" style="padding: 6px 12px; font-size: 12px;" onclick="return confirm('Delete this party? This action cannot be undone.');">Delete</a>
+                                
+                                <!-- Block/Unblock Button -->
+                                {% if p['is_blocked'] == 1 %}
+                                    <a href="{{ url_for('toggle_block_party', id=p['id']) }}" class="btn" style="padding: 6px 12px; font-size: 12px; background: #176b38;" onclick="return confirm('Unblock this party? They will appear in dropdowns again.');">Unblock</a>
+                                {% else %}
+                                    <a href="{{ url_for('toggle_block_party', id=p['id']) }}" class="btn" style="padding: 6px 12px; font-size: 12px; background: #ff9800;" onclick="return confirm('Block this party? They will not appear in new POs or Invoices.');">Block</a>
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <span style="color: #999; font-size: 12px; font-style: italic;">No Permission</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" style="text-align: center;">No parties found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        
+        // ==========================================
+        // 1. AJAX Form Submission (பேஜ் ரீலோட் ஆகாம சேவ் ஆக)
+        // ==========================================
+        const form = document.getElementById("addPartyForm");
+        if (form) {
+            form.addEventListener("submit", function(e) {
+                e.preventDefault(); 
+                
+                const formData = new FormData(this);
+                const submitBtn = form.querySelector('button[type="submit"]');
+                const originalText = submitBtn.innerHTML;
+                submitBtn.innerHTML = "Saving...";
+                submitBtn.disabled = true;
+                
+                fetch(window.location.href, {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        alert(data.message); 
+                        
+                        // Redirect URL இருந்தா அங்க போகும், இல்லைனா பேஜ் ரீலோட் ஆகும்
+                        if(data.redirect) {
+                            window.location.href = data.redirect; 
+                        } else {
+                            window.location.reload();
+                        }
+                    } else {
+                        alert(data.message);
+                        submitBtn.innerHTML = originalText;
+                        submitBtn.disabled = false;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Something went wrong while saving!');
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                });
+            });
+        }
+
+        // ==========================================
+        // 2. GST Auto-Fetch Logic
+        // ==========================================
+        const gstInput = document.getElementById('gstin');
+        const nameInput = document.getElementById('party_name');
+        const addressInput = document.getElementById('address');
+
+        if (gstInput) {
+            gstInput.addEventListener('blur', function() {
+                const gstin = this.value.trim().toUpperCase();
+                
+                if (gstin.length === 15) {
+                    nameInput.placeholder = "Fetching details...";
+                    addressInput.placeholder = "Fetching details...";
+                    nameInput.style.backgroundColor = "#f0f0f0";
+                    addressInput.style.backgroundColor = "#f0f0f0";
+
+                    fetch('/api/get-gst-details', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ gstin: gstin })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.legal_name) {
+                            nameInput.value = data.legal_name;
+                            addressInput.value = data.address;
+                        } else {
+                            alert('Invalid GSTIN or details not found.');
+                        }
+                        
+                        nameInput.placeholder = "e.g. Sathyamoorthy & Co";
+                        addressInput.placeholder = "Full Address";
+                        nameInput.style.backgroundColor = "";
+                        addressInput.style.backgroundColor = "";
+                    })
+                    .catch(error => {
+                        console.error('Error fetching GST:', error);
+                        alert('GST API Error. Please type the details manually.');
+                        nameInput.placeholder = "e.g. Sathyamoorthy & Co";
+                        addressInput.placeholder = "Full Address";
+                        nameInput.style.backgroundColor = "";
+                        addressInput.style.backgroundColor = "";
+                    });
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

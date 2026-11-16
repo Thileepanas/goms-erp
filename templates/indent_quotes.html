@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Vendor Quotes{% endblock %}
+{% block page_title %}Quotation Entry - IND-{{ indent['id'] }}{% endblock %}
+
+{% block content %}
+<div style="display: flex; gap: 15px; margin-bottom: 20px;">
+    <a href="{{ url_for('indents', project=indent['project_name']) }}" class="btn" style="background: #6c757d;">⬅️ Back to Indents</a>
+    
+    {% if session.get('role') in ['Admin', 'GM'] %}
+    <a href="{{ url_for('quote_comparison', id=indent['id']) }}" class="btn" style="background: #0d47a1;">📊 View Comparison (GM)</a>
+    {% endif %}
+</div>
+
+<div class="grid-2">
+    <!-- Add Quote Form -->
+    <div class="card" style="background: #f9fbfc;">
+        <h3>Add Vendor Quotation</h3>
+        <form method="POST">
+            <div class="grid-2" style="margin-bottom: 15px;">
+                <div>
+                    <label>Vendor Name *</label>
+                    <input type="text" name="vendor_name" required placeholder="e.g. ABC Traders" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px;">
+                </div>
+                <div>
+                    <label>Quote Date</label>
+                    <input type="date" name="quote_date" value="{{ today }}" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px;">
+                </div>
+                <div>
+                    <label>Brand / Make (Important) *</label>
+                    <input type="text" name="brand_name" required placeholder="e.g. Havells, Polycab" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px;">
+                </div>
+                <div>
+                    <label>Delivery Days</label>
+                    <input type="number" name="delivery_days" placeholder="e.g. 5" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px;">
+                </div>
+                <div>
+                    <label>Payment Terms</label>
+                    <input type="text" name="payment_terms" placeholder="e.g. 30 Days Credit" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px;">
+                </div>
+                <div>
+                    <label>Technical Remarks</label>
+                    <input type="text" name="technical_remarks" placeholder="e.g. ISI Marked" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px;">
+                </div>
+            </div>
+
+            <div class="table-wrap">
+                <table style="width: 100%; margin-bottom: 15px; background: white;">
+                    <thead>
+                        <tr style="background: #eee;">
+                            <th>Material</th>
+                            <th>Qty</th>
+                            <th>Ref Rate (₹)</th>
+                            <th>Vendor Rate (₹) *</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                        <tr>
+                            <td>{{ item['material_name'] }}</td>
+                            <td>{{ item['quantity'] }}</td>
+                            <td>
+                                {% if item.last_rate > 0 %}
+                                    <span style="font-size:11px; color:#176b38; font-weight:bold;" title="Last Purchased Rate">Last: ₹{{ item.last_rate | inr }}</span><br>
+                                {% endif %}
+                                {% if item.budget_rate > 0 %}
+                                    <span style="font-size:11px; color:#0d47a1;" title="BOQ Budget Rate">Budget: ₹{{ item.budget_rate | inr }}</span>
+                                {% endif %}
+                                {% if item.last_rate == 0 and item.budget_rate == 0 %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td><input type="number" name="rate[]" step="0.01" required style="width: 100px; padding: 5px; border: 1px solid #ccc; border-radius: 4px;" value="0"></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <button type="submit" class="btn" style="width: 100%; background: #176b38;">Save Quotation</button>
+        </form>
+    </div>
+
+    <!-- Existing Quotes -->
+    <div class="card">
+        <h3>Received Quotations</h3>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr style="background: #f1f5f9;">
+                        <th>Vendor</th>
+                        <th>Brand</th>
+                        <th>Total Amt</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for q in quotes %}
+                    <tr>
+                        <td>
+                            <strong>{{ q['vendor_name'] }}</strong><br>
+                            <span style="font-size: 11px; color: #666;">{{ q['delivery_days'] }} Days | {{ q['payment_terms'] or '-' }}</span>
+                        </td>
+                        <td><span style="background: #e3f2fd; color: #0d47a1; padding: 3px 6px; border-radius: 4px; font-size: 12px; font-weight: bold;">{{ q['brand_name'] or 'N/A' }}</span></td>
+                        <td style="font-weight: bold; color: #0a2240;">₹{{ q['total_amount'] | inr }}</td>
+                        <td>
+                            {% if q['status'] == 'Approved' %}
+                                <span style="color: green; font-weight: bold;">Approved</span>
+                            {% elif q['status'] == 'Rejected' %}
+                                <span style="color: red; font-weight: bold;">Rejected</span>
+                            {% else %}
+                                <span style="color: #ff9800; font-weight: bold;">Pending</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="4" style="text-align: center;">No quotes added yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Aging Report{% endblock %}
+{% block page_title %}Payment Aging Report (Client Summary){% endblock %}
+
+{% block content %}
+<style>
+    .filter-card { background: #f9fbfc; padding: 15px 20px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 25px; display: flex; align-items: flex-end; gap: 15px; flex-wrap: wrap; }
+    
+    /* Highlight different age columns */
+    .col-30 { background: #ecfdf5; color: #065f46; font-weight: bold; }
+    .col-60 { background: #fffbeb; color: #92400e; font-weight: bold; }
+    .col-90 { background: #fef2f2; color: #991b1b; font-weight: bold; }
+    .col-over { background: #f1f5f9; color: #333; font-weight: bold; }
+    
+    .total-col { background: #0a2240; color: white; font-weight: bold; font-size: 15px; }
+    
+    @media print {
+        .no-print { display: none !important; }
+        .card { box-shadow: none; border: none; padding: 0; }
+        table, th, td { border: 1px solid #000 !important; }
+        th { background: #f1f5f9 !important; color: #000 !important; -webkit-print-color-adjust: exact; }
+        .total-col { background: #f1f5f9 !important; color: #000 !important; }
+        .col-30, .col-60, .col-90, .col-over { color: #000 !important; }
+    }
+</style>
+
+<!-- Date Filters -->
+<div class="filter-card no-print">
+    <form method="GET" style="display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap; width: 100%;">
+        <div>
+            <label style="margin-bottom: 5px; display: block; font-weight: bold;">From Date:</label>
+            <input type="date" name="start_date" value="{{ start_date }}" style="padding: 9px; border-radius: 6px; border: 1px solid #ccc;">
+        </div>
+        <div>
+            <label style="margin-bottom: 5px; display: block; font-weight: bold;">To Date:</label>
+            <input type="date" name="end_date" value="{{ end_date }}" style="padding: 9px; border-radius: 6px; border: 1px solid #ccc;">
+        </div>
+        <button type="submit" class="btn" style="background: #0d47a1; padding: 10px 15px; height: 42px;">Filter Report</button>
+        <button type="button" onclick="window.print()" class="btn" style="background: #0a2240; padding: 10px 15px; height: 42px; margin-left: auto;">🖨️ Print Report</button>
+    </form>
+</div>
+
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h3 style="margin: 0; border: none; padding: 0;">Overall Client Outstanding</h3>
+        <span style="font-size: 13px; color: #666;">Report as of: <strong>{{ today }}</strong></span>
+    </div>
+    
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr style="background: #f1f5f9;">
+                    <th>Client Name</th>
+                    <th style="text-align: right; width: 13%;">0 - 30 Days</th>
+                    <th style="text-align: right; width: 13%;">31 - 60 Days</th>
+                    <th style="text-align: right; width: 13%;">61 - 90 Days</th>
+                    <th style="text-align: right; width: 13%;">Over 90 Days</th>
+                    <th style="text-align: right; width: 15%;">Total Pending (₹)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in report_data %}
+                <tr>
+                    <td><strong>{{ c.client }}</strong></td>
+                    <td class="col-30" style="text-align: right;">{{ c.b_30 | inr if c.b_30 > 0 else '-' }}</td>
+                    <td class="col-60" style="text-align: right;">{{ c.b_60 | inr if c.b_60 > 0 else '-' }}</td>
+                    <td class="col-90" style="text-align: right;">{{ c.b_90 | inr if c.b_90 > 0 else '-' }}</td>
+                    <td class="col-over" style="text-align: right;">{{ c.b_over | inr if c.b_over > 0 else '-' }}</td>
+                    <td class="total-col" style="text-align: right;">{{ c.total | inr }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" style="text-align: center; padding: 30px; font-size: 16px;">No outstanding balances found for this period. Excellent!</td></tr>
+                {% endfor %}
+            </tbody>
+            {% if report_data %}
+            <tfoot>
+                <tr style="background: #e2e8f0; font-weight: bold; font-size: 14px;">
+                    <td style="text-align: right; color: #0a2240;">GRAND TOTAL:</td>
+                    <td style="text-align: right;">₹ {{ grand_totals.b_30 | inr }}</td>
+                    <td style="text-align: right;">₹ {{ grand_totals.b_60 | inr }}</td>
+                    <td style="text-align: right;">₹ {{ grand_totals.b_90 | inr }}</td>
+                    <td style="text-align: right;">₹ {{ grand_totals.b_over | inr }}</td>
+                    <td style="text-align: right; font-size: 16px; color: #e31e24;">₹ {{ grand_totals.total | inr }}</td>
+                </tr>
+            </tfoot>
+            {% endif %}
+        </table>
+    </div>
+</div>
+{% endblock %}

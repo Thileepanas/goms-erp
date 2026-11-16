@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Leave Management{% endblock %}
+{% block page_title %}Staff Leave Management{% endblock %}
+
+{% block content %}
+<div class="grid-2" style="grid-template-columns: 1fr 2fr; gap: 20px;">
+    <div class="card" style="background: #f9fbfc;">
+        <h3>Apply Leave</h3>
+        <form method="POST">
+            <div style="margin-bottom: 15px;">
+                <label>Employee *</label>
+                <select name="emp_id" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                    <option value="">-- Select Employee --</option>
+                    {% for e in employees %}<option value="{{ e.id }}">{{ e.name }} ({{ e.emp_code }})</option>{% endfor %}
+                </select>
+            </div>
+            <div class="grid-2" style="margin-bottom: 15px;">
+                <div>
+                    <label>Start Date *</label>
+                    <input type="date" name="start_date" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+                <div>
+                    <label>End Date *</label>
+                    <input type="date" name="end_date" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label>Leave Type *</label>
+                <select name="leave_type" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                    <option value="Casual Leave">Casual Leave</option>
+                    <option value="Sick Leave">Sick Leave</option>
+                    <option value="Earned Leave">Earned Leave</option>
+                    <option value="Loss of Pay">Loss of Pay</option>
+                </select>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label>Reason</label>
+                <input type="text" name="reason" placeholder="Optional reason" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+            </div>
+            <button type="submit" class="btn" style="width: 100%; background: #0d47a1;">Submit Leave</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h3>Leave Applications</h3>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr style="background: #f1f5f9;">
+                        <th>Emp Name</th>
+                        <th>Dates</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th class="no-print" style="text-align: center;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for l in leaves %}
+                    <tr>
+                        <td><strong>{{ l.name }}</strong><br><small>{{ l.emp_code }}</small></td>
+                        <td>{{ l.start_date | dateformat }} <br> to <br> {{ l.end_date | dateformat }}</td>
+                        <td>{{ l.leave_type }}<br><small style="color: #666;">{{ l.reason or '' }}</small></td>
+                        <td>
+                            {% if l.status == 'Approved' %}<span style="color: green; font-weight: bold;">Approved</span>
+                            {% elif l.status == 'Rejected' %}<span style="color: red; font-weight: bold;">Rejected</span>
+                            {% else %}<span style="color: #ff9800; font-weight: bold;">Pending</span>{% endif %}
+                        </td>
+                        <td class="no-print" style="text-align: center;">
+                            {% if l.status == 'Pending' and session.get('role') in ['Admin', 'GM'] %}
+                            <div style="display: flex; gap: 5px; justify-content: center;">
+                                <a href="{{ url_for('leave_approve', id=l.id, status='Approved') }}" class="btn" style="padding: 4px 8px; font-size: 12px; background: #176b38;">✅</a>
+                                <a href="{{ url_for('leave_approve', id=l.id, status='Rejected') }}" class="btn" style="padding: 4px 8px; font-size: 12px; background: #e31e24;">❌</a>
+                            </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" style="text-align: center; padding: 20px;">No leaves applied yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

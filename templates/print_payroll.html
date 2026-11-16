@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Payslip - {{ emp['name'] }} ({{ pay['month'] }})</title>
+    <style>
+        body { font-family: 'Times New Roman', Times, serif; font-size: 14px; color: #000; padding: 20px; background: #f0f0f0; }
+        .slip-container { max-width: 800px; margin: 0 auto; background: #fff; padding: 30px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        
+        /* Table Design */
+        table { width: 100%; border-collapse: collapse; margin-bottom: 0; }
+        th, td { border: 1px solid #000; padding: 6px 10px; vertical-align: middle; }
+        
+        /* Header Colors */
+        .header-title { text-align: center; color: #0000cc; font-size: 22px; font-weight: bold; border: 1px solid #000; padding: 10px; }
+        .header-sub { text-align: center; font-size: 14px; border: 1px solid #000; padding: 5px; }
+        .header-month { text-align: center; font-size: 14px; font-weight: bold; border: 1px solid #000; padding: 5px; }
+        
+        /* Column Headers */
+        .col-head { color: #0000cc; font-weight: bold; font-size: 15px; }
+        
+        /* Net Salary Row */
+        .net-salary-row td { font-size: 18px; font-weight: bold; color: #0000cc; }
+        
+        /* Print Button */
+        .print-btn-container { text-align: center; margin-bottom: 20px; }
+        .print-btn { padding: 10px 25px; background: #0a2240; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; }
+        
+        @media print {
+            body { background: #fff; padding: 0; }
+            .slip-container { box-shadow: none; padding: 0; max-width: 100%; }
+            .print-btn-container { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="print-btn-container">
+        <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
+    </div>
+
+    <div class="slip-container">
+        <table>
+            <!-- Company Header -->
+            <tr>
+                <td colspan="4" class="header-title" style="font-family: Arial, sans-serif;">
+                    GOMS ELECTRICALS PVT LTD
+                </td>
+            </tr>
+            <tr>
+                <td colspan="4" class="header-sub">
+                    New No.43, Old No 113, 1st Main Road RK Nagar, Mandavelli, Chennai 6000028
+                </td>
+            </tr>
+            <tr>
+                <td colspan="4" class="header-month">
+                    Payslip for the month of {{ pay['month'] }}
+                </td>
+            </tr>
+
+            <!-- Employee Details -->
+            <tr>
+                <td width="25%">Staff Number</td>
+                <td width="25%">{{ emp['emp_code'] }}</td>
+                <td width="25%">UAN Number</td>
+                <td width="25%">-</td>
+            </tr>
+            <tr>
+                <td>Name</td>
+                <td><b>{{ emp['name'] }}</b></td>
+                <td>PAN</td>
+                <td>-</td>
+            </tr>
+            <tr>
+                <td>Designation</td>
+                <td>{{ emp['designation'] or '-' }}</td>
+                <td>No. of days in this Month</td>
+                <td>{{ total_days }}</td>
+            </tr>
+            <tr>
+                <td>Site Name</td>
+                <td>General</td>
+                <td>No. of days present</td>
+                <td>{{ pay['present_days'] }}</td>
+            </tr>
+            <tr>
+                <td>Fixed Gross Salary</td>
+                <td>{{ (emp['basic_salary'] + emp['hra'] + emp['allowances']) | inr }}</td>
+                <td>No. of days Absent</td>
+                <td>{{ total_days - pay['present_days'] }}</td>
+            </tr>
+
+            <!-- Earnings & Deductions Header -->
+            <tr>
+                <td class="col-head">Earnings</td>
+                <td class="col-head" style="text-align: right;">Amount</td>
+                <td class="col-head">Deductions</td>
+                <td class="col-head" style="text-align: right;">Amount</td>
+            </tr>
+
+            <!-- Earnings & Deductions Data -->
+            <tr>
+                <td>Basic</td>
+                <td style="text-align: right;">{{ emp['basic_salary'] | inr }}</td>
+                <td>Provident Fund</td>
+                <td style="text-align: right;">{{ pay['pf_deducted'] | inr }}</td>
+            </tr>
+            <tr>
+                <td>DA</td>
+                <td style="text-align: right;">0.00</td>
+                <td>E.S.I</td>
+                <td style="text-align: right;">0.00</td>
+            </tr>
+            <tr>
+                <td>Leave allowance</td>
+                <td style="text-align: right;">0.00</td>
+                <td>Professional Tax</td>
+                <td style="text-align: right;">{{ pay['tds_deducted'] | inr }}</td>
+            </tr>
+            <tr>
+                <td>Wash allowance</td>
+                <td style="text-align: right;">0.00</td>
+                <td>Other deductions</td>
+                <td style="text-align: right;">{{ pay['advance_deducted'] | inr }}</td>
+            </tr>
+            <tr>
+                <td>HRA/Conveyance</td>
+                <td style="text-align: right;">{{ emp['hra'] | inr }}</td>
+                <td></td>
+                <td style="text-align: right;"></td>
+            </tr>
+            <tr>
+                <td>Other allowance</td>
+                <td style="text-align: right;">{{ emp['allowances'] | inr }}</td>
+                <td></td>
+                <td style="text-align: right;"></td>
+            </tr>
+            <tr>
+                <td>Bonus</td>
+                <td style="text-align: right;">0.00</td>
+                <td></td>
+                <td style="text-align: right;"></td>
+            </tr>
+
+            <!-- Totals -->
+            <tr>
+                <td class="col-head">Earned Gross salary</td>
+                <td style="text-align: right; font-weight: bold;">{{ pay['earned_gross'] | inr }}</td>
+                <td class="col-head">Total Deductions</td>
+                <td style="text-align: right; font-weight: bold;">
+                    {{ (pay['pf_deducted'] + pay['tds_deducted'] + pay['advance_deducted']) | inr }}
+                </td>
+            </tr>
+            <tr>
+                <td>Incentive</td>
+                <td style="text-align: right;">0.00</td>
+                <td></td>
+                <td style="text-align: right;"></td>
+            </tr>
+
+            <!-- Net Salary -->
+            <tr class="net-salary-row">
+                <td>Net Salary</td>
+                <td style="text-align: right;">{{ pay['net_salary'] | inr }}</td>
+                <td colspan="2"></td>
+            </tr>
+            
+            <!-- Amount in Words -->
+            <tr>
+                <td colspan="4" style="padding: 10px;">
+                    <b>Amount in Words :</b> <span style="color: #0000cc;">{{ amount_in_words }}</span>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+</body>
+</html>

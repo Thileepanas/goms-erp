@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Edit Work Progress{% endblock %}
+{% block page_title %}Modify Work Progress Entry{% endblock %}
+
+{% block content %}
+<div class="card" style="background: #f9fbfc;">
+    <h3>Modify Work Entry: {{ boq_item['material_name'] if boq_item else 'Unknown' }}</h3>
+    <p style="color: #666; margin-bottom: 20px;">Project: <strong>{{ wp['project_name'] }}</strong></p>
+    
+    <form method="POST" action="{{ url_for('edit_work_progress', id=wp['id']) }}">
+        <div class="grid-3">
+            <div>
+                <label>Work Date *</label>
+                <input type="date" name="work_date" value="{{ wp['work_date'] }}" required style="padding: 10px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+            </div>
+            <div>
+                <label>Supply Qty</label>
+                <input type="number" name="qty_supply" value="{{ wp['qty_supply'] or 0 }}" step="0.01" style="padding: 10px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+            </div>
+            <div>
+                <label>Erection Qty</label>
+                <input type="number" name="qty_erection" value="{{ wp['qty_erection'] or 0 }}" step="0.01" style="padding: 10px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+            </div>
+            <div style="grid-column: 1 / -1;">
+                <label>Remarks</label>
+                <input type="text" name="remarks" value="{{ wp['remarks'] or '' }}" placeholder="Optional remarks..." style="padding: 10px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+            </div>
+        </div>
+        
+        <div style="display: flex; gap: 10px; margin-top: 25px;">
+            <button type="submit" class="btn" style="background: #0d47a1; flex: 1; padding: 12px; font-size: 16px;">Update Entry</button>
+            <a href="{{ url_for('work_progress', project=wp['project_name']) }}" class="btn" style="background: #666; flex: 1; text-align: center; padding: 12px; font-size: 16px;">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

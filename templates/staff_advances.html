@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Staff Advances & Expenses{% endblock %}
+{% block page_title %}Staff Advances & Expenses{% endblock %}
+
+{% block content %}
+<div class="grid-2" style="grid-template-columns: 1fr 2fr; gap: 20px;">
+    <div class="card" style="background: #f9fbfc; border-top: 4px solid #0d47a1;">
+        <h3>Record Staff Payment</h3>
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div style="margin-bottom: 15px;">
+                <label>Employee *</label>
+                <select name="emp_id" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                    <option value="">-- Select Employee --</option>
+                    {% for e in employees %}
+                        <option value="{{ e.id }}">{{ e.name }} ({{ e.emp_code }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="grid-2" style="margin-bottom: 15px;">
+                <div>
+                    <label>Date *</label>
+                    <input type="date" name="date" value="{{ today }}" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+                <div>
+                    <label>Amount (₹) *</label>
+                    <input type="number" name="amount" step="0.01" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label>Payment Type *</label>
+                <select name="exp_type" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                    <option value="Advance">Advance (Loan)</option>
+                    <option value="TA/DA Expense">TA/DA Expense</option>
+                    <option value="Reimbursement">Other Reimbursement</option>
+                </select>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label>Reason / Details *</label>
+                <input type="text" name="reason" required placeholder="e.g. Travel to Salem Site" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+            </div>
+            <button type="submit" class="btn" style="width: 100%; background: #176b38; padding: 12px;">Save Payment</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h3>Payment History</h3>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr style="background: #f1f5f9;">
+                        <th>Date</th>
+                        <th>Employee</th>
+                        <th>Amount (₹)</th>
+                        <th>Type / Reason</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in advances %}
+                    <tr>
+                        <td>{{ a.date | dateformat }}</td>
+                        <td><strong>{{ a.name }}</strong><br><small>{{ a.emp_code }}</small></td>
+                        <td style="font-weight: bold; color: #e31e24;">₹ {{ a.amount | inr }}</td>
+                        <td style="font-size: 13px;">{{ a.reason }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="4" style="text-align: center; padding: 20px;">No payments recorded yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

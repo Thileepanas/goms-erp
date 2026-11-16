@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}GSTR-1 Export{% endblock %}
+{% block page_title %}GSTR-1 Export (Sales){% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 600px; margin: 0 auto; text-align: center; padding: 40px;">
+    <h3 style="color: var(--primary-blue); margin-bottom: 20px;">📄 Download GSTR-1 (B2B & B2C)</h3>
+    <p style="color: #666; margin-bottom: 30px; font-size: 14px;">
+        Select the month to download the Sales Tax Return data in CSV format.<br>
+        This includes Invoice details, Taxable Value, and split up of CGST/SGST/IGST.
+    </p>
+
+    <form method="GET" action="{{ url_for('gstr1_export') }}" style="display: flex; flex-direction: column; gap: 20px; align-items: center;">
+        <div style="width: 100%; max-width: 300px; text-align: left;">
+            <label>Select Month *</label>
+            <input type="month" name="month" value="{{ selected_month }}" required style="width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 6px;">
+        </div>
+        
+        <button type="submit" class="btn" style="width: 100%; max-width: 300px; background: #176b38; padding: 12px; font-size: 16px;">
+            ⬇️ Download GSTR-1 (CSV)
+        </button>
+    </form>
+</div>
+
+{% if summary %}
+<div class="card" style="max-width: 600px; margin: 20px auto 0; text-align: center; border-top: 4px solid #0d47a1;">
+    <h3>Summary for {{ selected_month }}</h3>
+    <div style="display: flex; justify-content: space-around; margin-top: 20px;">
+        <div>
+            <p style="color: #666; font-size: 13px;">Total Taxable Value</p>
+            <strong style="font-size: 18px; color: #0a2240;">₹ {{ summary.taxable | inr }}</strong>
+        </div>
+        <div>
+            <p style="color: #666; font-size: 13px;">Total GST Collected</p>
+            <strong style="font-size: 18px; color: #176b38;">₹ {{ summary.gst | inr }}</strong>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

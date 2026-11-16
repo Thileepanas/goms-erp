@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Stock Adjustment{% endblock %}
+{% block page_title %}Stock Adjustment (Damage / Loss){% endblock %}
+
+{% block content %}
+<style>
+    .adj-layout { display: grid; grid-template-columns: 1fr 1.5fr; gap: 20px; align-items: start; }
+    @media (max-width: 1024px) { .adj-layout { grid-template-columns: 1fr; } }
+    
+    .form-card { background: #f9fbfc; border-top: 4px solid #e31e24; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .form-card h3 { color: var(--primary-blue); font-size: 18px; margin-bottom: 5px; }
+    .form-card p { font-size: 13px; color: #666; margin-bottom: 20px; line-height: 1.5; }
+    
+    .history-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-top: 4px solid var(--primary-blue); }
+    .history-card h3 { color: var(--primary-blue); font-size: 18px; margin-bottom: 20px; border-bottom: 2px solid #e31e24; display: inline-block; padding-bottom: 5px; }
+
+    .input-group { margin-bottom: 15px; }
+    .input-group label { font-weight: bold; font-size: 13px; color: #333; margin-bottom: 6px; display: block; }
+    .input-group input, .input-group select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; box-sizing: border-box; transition: 0.3s; }
+    .input-group input:focus, .input-group select:focus { outline: none; border-color: #0a2240; box-shadow: 0 0 0 3px rgba(10,34,64,0.1); }
+
+    .btn-deduct { width: 100%; background: #e31e24; color: white; border: none; padding: 12px; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 10px; }
+    .btn-deduct:hover { background: #b81319; }
+    
+    .badge-reason { background: #fff0f0; color: #b42318; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; display: inline-block; margin-bottom: 4px; }
+</style>
+
+<div class="adj-layout">
+    
+    <!-- LEFT SIDE: FORM -->
+    <div class="form-card">
+        <h3>Record Stock Damage / Loss</h3>
+        <p>This will deduct items from inventory and record as a general company expense.</p>
+        
+        <form method="POST">
+            <div class="grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="input-group">
+                    <label>Date *</label>
+                    <input type="date" name="adjustment_date" value="{{ today }}" required>
+                </div>
+                <div class="input-group">
+                    <label>Reason *</label>
+                    <select name="reason" required>
+                        <option value="Damage">Damage / Broken</option>
+                        <option value="Wastage">Wastage / Expiry</option>
+                        <option value="Loss">Lost / Theft</option>
+                        <option value="Audit">Audit Adjustment</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="input-group">
+                <label>Material *</label>
+                <select name="material_name" required>
+                    <option value="">-- Select Material --</option>
+                    {% for m in materials %}
+                        <option value="{{ m['material_name'] }}">
+                            {{ m['material_name'] }} (Stock: {{ m['available_stock'] | round(2) }} {{ m['unit'] }})
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="input-group">
+                    <label>Quantity *</label>
+                    <input type="number" name="quantity" step="0.01" required placeholder="0.00">
+                </div>
+                <div class="input-group">
+                    <label>Remarks</label>
+                    <input type="text" name="remarks" placeholder="Optional details">
+                </div>
+            </div>
+
+            <button type="submit" class="btn-deduct" onclick="return confirm('Are you sure you want to deduct this quantity from stock?');">
+                Deduct from Stock
+            </button>
+        </form>
+    </div>
+
+    <!-- RIGHT SIDE: HISTORY TABLE -->
+    <div class="history-card">
+        <h3>Adjustment History</h3>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr style="background: #f1f5f9;">
+                        <th>Date</th>
+                        <th>Material</th>
+                        <th style="text-align: center;">Qty</th>
+                        <th>Reason / Remarks</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for h in history %}
+                    <tr>
+                        <td style="white-space: nowrap;">{{ h['adjustment_date'] | dateformat }}</td>
+                        <td><strong>{{ h['material_name'] }}</strong></td>
+                        <td style="color: #e31e24; font-weight: bold; text-align: center;">-{{ h['quantity'] }}</td>
+                        <td>
+                            <span class="badge-reason">{{ h['reason'] }}</span><br>
+                            <span style="font-size: 12px; color: #666;">{{ h['remarks'] or '-' }}</span>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="4" style="text-align: center; padding: 30px; color: #999;">No adjustments recorded yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Activity Log{% endblock %}
+{% block page_title %}System Audit Trail{% endblock %}
+
+{% block content %}
+<div class="card" style="background: #f9fbfc;">
+    <h3>User Activity History (Last 500 Records)</h3>
+    <p style="color: #666; font-size: 13px; margin-bottom: 20px;">Track who did what and when. Only visible to Admin.</p>
+    
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr style="background: #f1f5f9;">
+                    <th style="width: 15%;">Date & Time</th>
+                    <th style="width: 15%;">User</th>
+                    <th style="width: 20%;">Action</th>
+                    <th style="width: 50%;">Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td style="white-space: nowrap; font-size: 12px;">{{ log['timestamp'] }}</td>
+                    <td><strong style="color: #0d47a1;">{{ log['username'] }}</strong></td>
+                    <td>
+                        {% if 'Delete' in log['action'] %}
+                            <span style="background: #fff0f0; color: #b42318; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">{{ log['action'] }}</span>
+                        {% elif 'Login' in log['action'] %}
+                            <span style="background: #e0f5e8; color: #176b38; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">{{ log['action'] }}</span>
+                        {% elif 'Approve' in log['action'] %}
+                            <span style="background: #e3f2fd; color: #0d47a1; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">{{ log['action'] }}</span>
+                        {% else %}
+                            <span style="background: #f1f5f9; color: #333; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">{{ log['action'] }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-size: 13px; color: #444;">{{ log['details'] }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" style="text-align: center; padding: 20px;">No activity logs found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Party{% endblock %}
+{% block page_title %}Party / Vendor Management{% endblock %}
+
+{% block content %}
+<style>
+    .grid-form { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
+    @media(max-width: 768px) { .grid-form { grid-template-columns: 1fr; } }
+    
+    .input-group label { font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px; display: block; }
+    .input-group input, .input-group select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+</style>
+
+<div class="card" style="background: #f9fbfc; border-top: 4px solid var(--primary-blue);">
+    <h3>Modify Party / Vendor</h3>
+    <form method="POST">
+        <div class="grid-form">
+            <div class="input-group">
+                <label>GSTIN *</label>
+                <input type="text" name="gstin" value="{{ party['gstin'] or '' }}" required placeholder="e.g. 33AACFV0222D1ZY" maxlength="15" style="text-transform: uppercase;">
+            </div>
+            
+            <div class="input-group">
+                <label>Party Name *</label>
+                <input type="text" name="party_name" value="{{ party['party_name'] }}" required placeholder="e.g. Sathyamoorthy & Co">
+            </div>
+
+            <div class="input-group">
+                <label>Party Type *</label>
+                <select name="party_type" required>
+                    <option value="Debtor" {% if party['party_type'] == 'Debtor' %}selected{% endif %}>Debtor (Client / Customer)</option>
+                    <option value="Creditor" {% if party['party_type'] == 'Creditor' %}selected{% endif %}>Creditor (Vendor / Supplier)</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label>Contact Number</label>
+                <input type="text" name="contact_number" value="{{ party['contact_number'] or '' }}" placeholder="Phone Number">
+            </div>
+
+            <div class="input-group">
+                <label>Email Address</label>
+                <input type="email" name="email" value="{{ party['email'] or '' }}" placeholder="Email">
+            </div>
+
+            <div class="input-group">
+                <label>Opening Balance (₹)</label>
+                <input type="number" name="opening_balance" step="0.01" value="{{ party['opening_balance'] or 0 }}" placeholder="0.00">
+            </div>
+
+            <div class="input-group" style="grid-column: 1 / -1;">
+                <label>Address</label>
+                <input type="text" name="address" value="{{ party['address'] or '' }}" placeholder="Full Address">
+            </div>
+        </div>
+        
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <button type="submit" class="btn" style="background: #0d47a1;">Update Party</button>
+            <a href="{{ url_for('parties') }}" class="btn" style="background: #666; text-decoration: none;">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

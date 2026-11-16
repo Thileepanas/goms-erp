@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Document Vault{% endblock %}
+{% block page_title %}Project Documents & Files{% endblock %}
+
+{% block content %}
+<style>
+    /* Layout Styles */
+    .adj-layout { display: grid; grid-template-columns: 1fr 1.5fr; gap: 20px; align-items: start; }
+    @media (max-width: 1024px) { .adj-layout { grid-template-columns: 1fr; } }
+    
+    .form-card { background: #f9fbfc; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-top: 4px solid #0d47a1; }
+    .form-card h3 { color: var(--primary-blue); font-size: 18px; margin-bottom: 15px; }
+    
+    .history-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-top: 4px solid #176b38; }
+    .history-card h3 { color: var(--primary-blue); font-size: 18px; margin-bottom: 20px; border-bottom: 2px solid #176b38; display: inline-block; padding-bottom: 5px; }
+
+    .input-group { margin-bottom: 15px; }
+    .input-group label { font-weight: bold; font-size: 13px; color: #333; margin-bottom: 6px; display: block; }
+    .input-group input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; box-sizing: border-box; transition: 0.3s; }
+    .input-group input:focus { outline: none; border-color: #0a2240; box-shadow: 0 0 0 3px rgba(10,34,64,0.1); }
+
+    .btn-upload { width: 100%; background: #0d47a1; color: white; border: none; padding: 12px; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+    .btn-upload:hover { background: #0a387f; }
+</style>
+
+<!-- Project Selector -->
+<div class="card no-print" style="margin-bottom: 25px; background: #f9fbfc; border-left: 4px solid var(--primary-blue);">
+    <form method="GET" style="display: flex; gap: 15px; align-items: center;">
+        <label style="margin: 0; white-space: nowrap; font-weight: bold; font-size: 15px;">Select Project:</label>
+        <select name="project" onchange="this.form.submit()" style="padding: 12px; border-radius: 6px; max-width: 400px; width: 100%; font-size: 15px; border: 1px solid #ccc;">
+            <option value="">-- Choose Project --</option>
+            {% for p in project_list %}
+                <option value="{{ p['project_name'] }}" {% if p['project_name'] == selected_project %}selected{% endif %}>{{ p['project_name'] }}</option>
+            {% endfor %}
+        </select>
+    </form>
+</div>
+
+{% if selected_project %}
+<div class="adj-layout">
+    
+    <!-- LEFT SIDE: UPLOAD FORM -->
+    <div class="form-card">
+        <h3>Upload New Document</h3>
+        <form method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="project_name" value="{{ selected_project }}">
+            
+            <div class="input-group">
+                <label>Document Name / Title *</label>
+                <input type="text" name="doc_name" required placeholder="e.g. Work Order, Agreement, Site Photo">
+            </div>
+
+            <div class="input-group">
+                <label>Select File (PDF / Image) *</label>
+                <input type="file" name="file" required accept=".pdf, .jpg, .jpeg, .png" style="background: white;">
+                <small style="color: #666; font-size: 11px; display: block; margin-top: 5px;">Max size: 16MB. Formats: PDF, JPG, PNG</small>
+            </div>
+
+            <button type="submit" class="btn-upload">Upload Document</button>
+        </form>
+    </div>
+
+    <!-- RIGHT SIDE: HISTORY TABLE -->
+    <div class="history-card">
+        <h3>Uploaded Documents</h3>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr style="background: #f1f5f9;">
+                        <th>Date</th>
+                        <th>Document Name</th>
+                        <th class="no-print" style="text-align: center;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doc in doc_list %}
+                    <tr>
+                        <td style="white-space: nowrap;">{{ doc['upload_date'] | dateformat }}</td>
+                        <td><strong>{{ doc['doc_name'] }}</strong></td>
+                        <td class="no-print" style="text-align: center; white-space: nowrap;">
+                            <a href="{{ url_for('static', filename='uploads/' + doc['file_name']) }}" target="_blank" class="btn" style="padding: 6px 10px; font-size: 12px; background: #ffc107; color: black;">⬇️ View</a>
+                            <a href="{{ url_for('delete_document', id=doc['id'], project=selected_project) }}" class="btn" style="padding: 6px 10px; font-size: 12px; background: #e31e24;" onclick="return confirm('Delete this document?');">❌</a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="3" style="text-align: center; padding: 20px;">No documents uploaded yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="card" style="text-align: center; padding: 50px;">
+    <h3 style="color: #666;">Please select a project to view or upload documents.</h3>
+</div>
+{% endif %}
+{% endblock %}

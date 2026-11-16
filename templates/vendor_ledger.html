@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Vendor Ledger{% endblock %}
+{% block page_title %}Vendor Ledger Account{% endblock %}
+
+{% block content %}
+<style>
+    .tally-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+    .tally-table th, .tally-table td { border: 1px solid #999; padding: 8px; }
+    .tally-table th { background: #f1f5f9; font-weight: bold; text-align: center; }
+    .tally-table td.amount { text-align: right; font-weight: bold; }
+    .tally-header { text-align: center; margin-bottom: 15px; line-height: 1.5; }
+    .tally-header h2 { margin: 0; font-size: 18px; color: #0a2240; }
+    .tally-header h3 { margin: 5px 0; font-size: 16px; color: #333; }
+    .tally-header p { margin: 0; font-size: 13px; color: #666; }
+    .badge-po { background: #ff9800; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+    .badge-bill { background: #0d47a1; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+    .badge-pay { background: #176b38; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+    
+    @media print {
+        .d-print-block { display: block !important; }
+    }
+</style>
+
+<div class="no-print" style="display: flex; border-bottom: 2px solid #ddd; margin-bottom: 20px; overflow-x: auto; white-space: nowrap;">
+    <a href="{{ url_for('accounts') }}" style="padding: 12px 20px; text-decoration: none; font-weight: bold; color: #666;">Project P&L</a>
+    <a href="{{ url_for('client_ledger') }}" style="padding: 12px 20px; text-decoration: none; font-weight: bold; color: #666;">Client Ledger</a>
+    <a href="{{ url_for('vendor_ledger') }}" style="padding: 12px 20px; text-decoration: none; font-weight: bold; color: var(--primary-blue); border-bottom: 3px solid var(--accent-red);">Vendor Ledger</a>
+</div>
+
+<!-- NEW: Filter Form with Dates -->
+<div class="card no-print" style="background: #f9fbfc;">
+    <form method="GET" style="display: flex; gap: 15px; align-items: flex-end; justify-content: space-between; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 300px;">
+            <div style="flex: 1;">
+                <label>Select Vendor:</label>
+                <select name="vendor" onchange="this.form.submit()" style="padding: 10px; border-radius: 6px; width: 100%;">
+                    <option value="">-- Choose Vendor --</option>
+                    {% for v in vendors %}
+                        <option value="{{ v['name'] }}" {% if v['name'] == selected_vendor %}selected{% endif %}>{{ v['name'] }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        
+        <div style="display: flex; gap: 10px; align-items: flex-end;">
+            <div>
+                <label>From Date</label>
+                <input type="date" name="start_date" value="{{ start_date }}" style="padding: 10px; border-radius: 6px;">
+            </div>
+            <div>
+                <label>To Date</label>
+                <input type="date" name="end_date" value="{{ end_date }}" style="padding: 10px; border-radius: 6px;">
+            </div>
+            <button type="submit" class="btn" style="background: #0d47a1; padding: 10px 15px; height: 42px;">Filter</button>
+            {% if selected_vendor %}
+                <button type="button" onclick="window.print()" class="btn" style="background: #0a2240; height: 42px;">🖨️ Print</button>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+{% if selected_vendor %}
+<div class="print-section card" style="padding: 30px; background: white;">
+    <div class="tally-header">
+        <h2>GOMS Electricals Pvt. Ltd</h2>
+        <h3>{{ selected_vendor }}</h3>
+        <p>Ledger Account</p>
+    </div>
+
+    <div class="table-wrap">
+        <table class="tally-table">
+            <thead>
+                <tr>
+                    <th style="width: 10%;">Date</th>
+                    <th style="width: 30%;">Particulars</th>
+                    <th style="width: 8%;">Type</th>
+                    <th style="width: 13%;">PO Value (₹)</th>
+                    <th style="width: 13%;">Bill Value (₹)</th>
+                    <th style="width: 13%;">Payment (₹)</th>
+                    <th style="width: 13%;">Balance (₹)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <!-- FIX: Dynamic start date instead of hardcoded -->
+                    <td style="text-align: center;">{{ start_date | dateformat }}</td>
+                    <td>By Opening Balance</td>
+                    <td>-</td>
+                    <td class="amount"></td>
+                    <td class="amount"></td>
+                    <td class="amount"></td>
+                    <td class="amount">{{ (opening_balance or 0) | inr }}</td>
+                </tr>
+                
+                {% for t in transactions %}
+                <tr>
+                    <td style="text-align: center;">{{ t.date | dateformat }}</td>
+                    <td>{{ t.particulars }}</td>
+                    <td style="text-align: center;">
+                        {% if t.type == 'PO' %}
+                            <span class="badge-po">PO</span>
+                        {% elif t.type == 'Bill' %}
+                            <span class="badge-bill">Bill</span>
+                        {% else %}
+                            <span class="badge-pay">Payment</span>
+                        {% endif %}
+                    </td>
+                    <td class="amount" style="color: #ff9800;">{% if (t.po_value or 0) > 0 %}{{ t.po_value | inr }}{% endif %}</td>
+                    <td class="amount" style="color: #0d47a1;">{% if (t.bill_value or 0) > 0 %}{{ t.bill_value | inr }}{% endif %}</td>
+                    <td class="amount" style="color: #176b38;">{% if (t.paid_amount or 0) > 0 %}{{ t.paid_amount | inr }}{% endif %}</td>
+                    <td class="amount">{{ (t.balance or 0) | inr }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr style="background: #f9fbfc;">
+                    <td colspan="3" style="text-align: right; font-weight: bold;">Total</td>
+                    <td class="amount" style="color: #ff9800;">{{ (total_po_value or 0) | inr }}</td>
+                    <td class="amount" style="color: #0d47a1;">{{ (total_bill_value or 0) | inr }}</td>
+                    <td class="amount" style="color: #176b38;">{{ (total_paid or 0) | inr }}</td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td colspan="6" style="text-align: right; font-weight: bold; background: #e2e8f0; font-size: 15px;">To Closing Balance (Payable)</td>
+                    <td class="amount" style="background: #e2e8f0; font-size: 15px;">₹ {{ (closing_balance or 0) | inr }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <!-- PO vs Bill Difference Summary -->
+    <div style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 30px; background: #f9fbfc; padding: 15px 25px; border: 1px solid #ddd; border-radius: 6px; flex-wrap: wrap;">
+        <div style="text-align: right;">
+            <span style="font-size: 13px; color: #666; display: block; text-transform: uppercase; font-weight: bold;">PO vs Bill Difference (Unbilled)</span>
+            <strong style="font-size: 18px; color: #ff9800;">₹ {{ (po_bill_diff or 0) | inr }}</strong>
+        </div>
+        <div style="text-align: right; border-left: 2px solid #ddd; padding-left: 30px;">
+            <span style="font-size: 13px; color: #666; display: block; text-transform: uppercase; font-weight: bold;">Closing Balance (Payable)</span>
+            <strong style="font-size: 18px; color: #e31e24;">₹ {{ (closing_balance or 0) | inr }}</strong>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

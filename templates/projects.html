@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}Project Master{% endblock %}
+{% block page_title %}Project Management{% endblock %}
+
+{% block content %}
+<style>
+    .grid-form { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
+    @media(max-width: 768px) { .grid-form { grid-template-columns: 1fr; } }
+    
+    .input-group label { font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px; display: block; }
+    .input-group input, .input-group select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+</style>
+
+<div class="card" style="background: #f9fbfc; border-top: 4px solid var(--primary-blue);">
+    <h3>Add New Project</h3>
+    <!-- புது ஃபார்ம் ID -->
+    <form id="addProjectForm" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="grid-form">
+            <div class="input-group">
+                <label>Project Name *</label>
+                <input type="text" name="project_name" required placeholder="e.g. Srinivas Towers">
+            </div>
+
+            <div class="input-group">
+                <label>Client Name *</label>
+                <select name="client_name" required>
+                    <option value="">-- Select Client --</option>
+                    {% for d in debtors %}
+                    <option value="{{ d['party_name'] }}">{{ d['party_name'] }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label>Work Order No</label>
+                <input type="text" name="work_order" placeholder="e.g. WO-2026-001">
+            </div>
+
+            <div class="input-group">
+                <label>Project Value (₹)</label>
+                <input type="number" name="project_value" step="0.01" value="0" placeholder="0.00">
+            </div>
+
+            <div class="input-group">
+                <label>Start Date</label>
+                <input type="date" name="start_date">
+            </div>
+
+            <div class="input-group">
+                <label>Status</label>
+                <select name="status">
+                    <option value="Planning">Planning</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="On Hold">On Hold</option>
+                    <option value="Completed">Completed</option>
+                </select>
+            </div>
+        </div>
+        
+        <button type="submit" class="btn" style="margin-top: 15px; background: #176b38;">Save Project</button>
+    </form>
+</div>
+
+<div class="card">
+    <h3>Existing Projects</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Project Name</th>
+                    <th>Client</th>
+                    <th>Value (₹)</th>
+                    <th>Start Date</th>
+                    <th>Status</th>
+                    <th class="no-print" style="text-align: center;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in projects %}
+                <tr>
+                    <td><strong>{{ p['project_name'] }}</strong></td>
+                    <td>{{ p['client_name'] }}</td>
+                    <td>{{ p['project_value'] | inr }}</td>
+                    <td>{{ p['start_date'] | dateformat if p['start_date'] else '-' }}</td>
+                    <td>
+                        {% if p['status'] == 'Completed' %}
+                            <span style="background: #e0f5e8; color: #176b38; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">Completed</span>
+                        {% elif p['status'] == 'In Progress' %}
+                            <span style="background: #e3f2fd; color: #0d47a1; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">In Progress</span>
+                        {% else %}
+                            <span style="background: #f1f5f9; color: #333; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">{{ p['status'] }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="no-print" style="text-align: center;">
+                        {% if is_admin_or_gm %}
+                            <div style="display: flex; gap: 5px; justify-content: center; flex-wrap: wrap;">
+                                <!-- Edit Button -->
+                                <a href="{{ url_for('edit_project', id=p.id) }}" class="btn" style="padding: 6px 12px; font-size: 12px; background: #0a2240;">Edit</a>
+                                
+                                <!-- Delete Button (Class added for AJAX) -->
+                                <a href="{{ url_for('delete_project', id=p.id) }}" class="btn btn-red delete-btn" style="padding: 6px 12px; font-size: 12px;">Delete</a>
+                            </div>
+                        {% else %}
+                            <span style="color: #999; font-size: 12px; font-style: italic;">No Permission</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" style="text-align: center;">No projects found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    
+    // Safety fallback for Toast
+    if (typeof window.showToast !== "function") {
+        window.showToast = function(message, type = 'success') {
+            alert(message);
+        };
+    }
+
+    // ==========================================
+    // 1. AJAX for Create Project
+    // ==========================================
+    const form = document.getElementById("addProjectForm");
+    if (form) {
+        form.addEventListener("submit", function(e) {
+            e.preventDefault(); 
+            
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = "Saving...";
+            submitBtn.disabled = true;
+
+            fetch(window.location.href, {
+                method: 'POST',
+                body: new FormData(this),
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    window.showToast(data.message, 'success');
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    window.showToast(data.message, 'error');
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                window.showToast("Error saving project.", 'error');
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            });
+        });
+    }
+
+    // ==========================================
+    // 2. AJAX for Delete Project
+    // ==========================================
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (!confirm('⚠️ Are you sure you want to delete this project?\n\nAll related BOQs, Work Progress, and Bills will be lost.')) return;
+
+            const deleteUrl = this.getAttribute('href');
+            const originalText = this.innerHTML;
+            this.innerHTML = "Deleting...";
+            this.style.pointerEvents = "none"; 
+
+            fetch(deleteUrl, {
+                method: 'GET',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    window.showToast(data.message, 'success');
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    window.showToast(data.message, 'error');
+                    this.innerHTML = originalText;
+                    this.style.pointerEvents = "auto";
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                window.showToast("Error deleting project.", 'error');
+                this.innerHTML = originalText;
+                this.style.pointerEvents = "auto";
+            });
+        });
+    });
+
+});
+</script>
+{% endblock %}

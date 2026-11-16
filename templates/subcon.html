@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% block title %}Subcon Billing{% endblock %}
+{% block page_title %}Subcontractor Billing{% endblock %}
+
+{% block content %}
+<style>
+    .highlight-box { background: #f8fafc; border: 1px solid #ddd; padding: 15px; border-radius: 6px; margin-top: 15px; }
+    .total-box { background: #0a2240; color: white; padding: 15px; border-radius: 6px; font-size: 18px; font-weight: bold; display: flex; justify-content: space-between; margin-top: 15px; }
+    .table-wrap th { font-size: 12px; padding: 8px; }
+    .table-wrap td { font-size: 13px; padding: 8px; }
+</style>
+
+<div class="card no-print" style="margin-bottom: 25px; background: #f9fbfc; border-left: 4px solid var(--primary-blue);">
+    <form method="GET" style="display: flex; gap: 15px; align-items: center;">
+        <label style="margin: 0; white-space: nowrap; font-weight: bold; font-size: 15px;">Select Project:</label>
+        <select name="project" onchange="this.form.submit()" style="padding: 12px; border-radius: 6px; max-width: 400px; width: 100%; font-size: 15px; border: 1px solid #ccc;">
+            <option value="">-- Choose Project --</option>
+            {% for p in project_list %}
+                <option value="{{ p['project_name'] }}" {% if p['project_name'] == selected_project %}selected{% endif %}>{{ p['project_name'] }}</option>
+            {% endfor %}
+        </select>
+    </form>
+</div>
+
+{% if selected_project %}
+<div class="grid-2">
+    <div class="card" style="background: #f9fbfc;">
+        <h3>Create Subcon Bill</h3>
+        {% if subcon_items %}
+        <form method="POST" id="subconForm">
+            <input type="hidden" name="project_name" value="{{ selected_project }}">
+            <div class="grid-2" style="margin-bottom: 15px;">
+                <div>
+                    <label>Subcontractor *</label>
+                    <select name="subcon_name" id="subcon_select" required onchange="loadMaterialDeductions()" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px; font-weight: bold;">
+                        <option value="">-- Select Subcon --</option>
+                        {% for v in vendors %}
+                            <option value="{{ v['party_name'] }}">{{ v['party_name'] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label>Bill Date *</label>
+                    <input type="date" name="bill_date" value="{{ today }}" required style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px;">
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label>Remarks</label>
+                <input type="text" name="remarks" placeholder="Optional" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px;">
+            </div>
+
+            <h4 style="margin-bottom: 10px; color: var(--primary-blue);">Work Done Items</h4>
+            <div class="table-wrap">
+                <table style="width:100%; background: white; margin-bottom: 15px;">
+                    <thead>
+                        <tr style="background: #eee;">
+                            <th>Item</th>
+                            <th>Rate (₹)</th>
+                            <th>Done Qty</th>
+                            <th style="text-align: right;">Amount (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in subcon_items %}
+                        <tr>
+                            <td>{{ item['material_name'] }} <br><small style="color:#666;">({{ item['subcon_name'] }})</small></td>
+                            <td>{{ item['subcon_rate'] | inr }}</td>
+                            <td>
+                                <input type="hidden" name="boq_item_id[]" value="{{ item['id'] }}">
+                                <input type="number" name="quantity[]" class="qty-input" step="0.01" value="0" style="width: 80px; padding: 5px; border: 1px solid #ccc; border-radius: 4px;" oninput="calculateTotals()">
+                                <input type="hidden" name="rate[]" class="rate-input" value="{{ item['subcon_rate'] }}">
+                            </td>
+                            <td class="row-total" style="text-align: right; font-weight: bold;">0.00</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Material Deduction Section -->
+            <div id="material_deduction_box" class="highlight-box" style="display: none; border-left: 4px solid #e31e24;">
+                <h4 style="margin-top: 0; color: #e31e24; font-size: 14px;">📦 Material Issued to this Subcon (Deducted from Bill)</h4>
+                <div class="table-wrap">
+                    <table style="width: 100%; margin: 0; background: transparent;">
+                        <thead>
+                            <tr style="background: #fff0f0;">
+                                <th>Material</th>
+                                <th>Qty</th>
+                                <th>Rate</th>
+                                <th style="text-align: right;">Amount (₹)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="material_list_body">
+                            <!-- Populated via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Summary Box -->
+            <div class="total-box" style="flex-direction: column; gap: 10px;">
+                <div style="display: flex; justify-content: space-between; font-size: 14px; color: #ccc; border-bottom: 1px solid #555; padding-bottom: 10px;">
+                    <span>Work Done Amount:</span>
+                    <span>₹ <span id="work_amount_display">0.00</span></span>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 14px; color: #ff9800; padding-bottom: 10px;">
+                    <span>Less: Material Deduction:</span>
+                    <span>- ₹ <span id="material_deduction_display">0.00</span></span>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 18px; font-weight: bold; color: #4ade80;">
+                    <span>NET PAYABLE:</span>
+                    <span>₹ <span id="net_payable_display">0.00</span></span>
+                </div>
+                <input type="hidden" name="material_deduction" id="material_deduction_input" value="0">
+            </div>
+
+            <button type="submit" class="btn" style="width: 100%; background: #176b38; margin-top: 15px; padding: 12px; font-size: 16px;">Generate Subcon Bill</button>
+        </form>
+        {% else %}
+        <p style="color: #666;">No Subcon items found in BOQ for this project.</p>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h3>Subcon Bill History</h3>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr style="background: #f1f5f9;">
+                        <th>Date</th>
+                        <th>Subcon</th>
+                        <th>Net Amount (₹)</th>
+                        <th class="no-print">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for h in history %}
+                    <tr>
+                        <td>{{ h['bill_date'] | dateformat }}</td>
+                        <td><strong>{{ h['subcon_name'] }}</strong><br><small>{{ h['remarks'] or '' }}</small></td>
+                        <td style="font-weight: bold; color: #0d47a1;">{{ h['total_amount'] | inr }}</td>
+                        <td class="no-print" style="text-align: center;">
+                            <a href="{{ url_for('print_subcon_bill', id=h['id']) }}" target="_blank" class="btn" style="padding: 4px 8px; font-size: 12px; background: #0a2240;">🖨️ Print</a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="4" style="text-align: center;">No bills generated yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="card" style="text-align: center; padding: 50px;">
+    <h3 style="color: #666;">Please select a project.</h3>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Pass Python material issues data to JS
+    const materialIssuesData = {{ issues_dict | tojson }};
+
+    function loadMaterialDeductions() {
+        const subconName = document.getElementById("subcon_select").value;
+        const materialBox = document.getElementById("material_deduction_box");
+        const materialBody = document.getElementById("material_list_body");
+        
+        materialBody.innerHTML = "";
+        let totalDeduction = 0;
+
+        if (subconName && materialIssuesData[subconName]) {
+            materialBox.style.display = "block";
+            
+            materialIssuesData[subconName].forEach(item => {
+                const amt = parseFloat(item.amount) || 0;
+                totalDeduction += amt;
+                
+                materialBody.innerHTML += `
+                    <tr>
+                        <td>${item.material_name}</td>
+                        <td>${item.quantity}</td>
+                        <td>₹${parseFloat(item.rate).toFixed(2)}</td>
+                        <td style="text-align: right; color: #e31e24; font-weight: bold;">₹${amt.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+        } else {
+            materialBox.style.display = "none";
+        }
+
+        document.getElementById("material_deduction_display").textContent = totalDeduction.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        document.getElementById("material_deduction_input").value = totalDeduction;
+        calculateTotals();
+    }
+
+    function calculateTotals() {
+        let workTotal = 0;
+        
+        document.querySelectorAll('.qty-input').forEach(input => {
+            const row = input.closest('tr');
+            const qty = parseFloat(input.value) || 0;
+            const rate = parseFloat(row.querySelector('.rate-input').value) || 0;
+            const amt = qty * rate;
+            
+            row.querySelector('.row-total').textContent = amt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            workTotal += amt;
+        });
+
+        const matDeduction = parseFloat(document.getElementById("material_deduction_input").value) || 0;
+        const netPayable = workTotal - matDeduction;
+
+        document.getElementById("work_amount_display").textContent = workTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        document.getElementById("net_payable_display").textContent = netPayable.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+</script>
+{% endblock %}

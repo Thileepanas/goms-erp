@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+{% block title %}Company P&L{% endblock %}
+{% block page_title %}Company Profit & Loss Statement{% endblock %}
+
+{% block content %}
+<style>
+    /* Filter Bar */
+    .filter-bar { background: #f9fbfc; padding: 15px 20px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 20px; display: flex; gap: 15px; align-items: end; flex-wrap: wrap; }
+    .filter-bar input { padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; }
+    
+    /* KPI Cards */
+    .pnl-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px; }
+    @media(max-width: 900px) { .pnl-cards { grid-template-columns: 1fr; } }
+    
+    .pnl-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-top: 4px solid #0a2240; display: flex; flex-direction: column; }
+    .pnl-card h4 { font-size: 12px; color: #666; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 0.5px; }
+    .pnl-card h2 { font-size: 24px; font-weight: 800; margin: 0; }
+    
+    .pnl-card.sales { border-top-color: #0d47a1; }
+    .pnl-card.sales h2 { color: #0d47a1; }
+    
+    .pnl-card.cogs { border-top-color: #ff9800; }
+    .pnl-card.cogs h2 { color: #ff9800; }
+    
+    .pnl-card.exp { border-top-color: #e31e24; }
+    .pnl-card.exp h2 { color: #e31e24; }
+    
+    .pnl-card.profit { border-top-color: #176b38; background: #f4fcf7; }
+    .pnl-card.profit h2 { color: #176b38; }
+
+    /* Statement Table */
+    .statement-card { background: white; border-radius: 8px; padding: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .statement-card h3 { font-size: 20px; color: #0a2240; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+    
+    .pnl-table { width: 100%; border-collapse: collapse; font-size: 15px; }
+    .pnl-table th { text-align: left; padding: 12px 15px; background: #f8fafc; color: #0a2240; font-weight: 700; border-bottom: 2px solid #0a2240; }
+    .pnl-table td { padding: 12px 15px; border-bottom: 1px solid #e2e8f0; color: #333; }
+    
+    .pnl-table .amount { text-align: right; font-weight: 600; font-family: monospace; font-size: 16px; }
+    .pnl-table .sub-heading { font-weight: bold; color: #0a2240; background: #f9fbfc; }
+    .pnl-table .total-row { font-weight: bold; font-size: 16px; background: #f9fbfc; }
+    .pnl-table .gross-profit { font-weight: bold; color: #0d47a1; background: #e3f2fd; }
+    .pnl-table .net-profit { font-weight: bold; color: white; background: #176b38; font-size: 18px; }
+    
+    .indent { padding-left: 30px !important; }
+    
+    /* கிளிக் பண்ண கூடிய ஹெடர் ஸ்டைல் */
+    .clickable-header { cursor: pointer; transition: 0.2s; }
+    .clickable-header:hover { background: #e2e8f0 !important; }
+
+    /* Print-ல மட்டும் தெரிய வேண்டிய ஹெடர் */
+    .print-only-header { display: none; }
+
+    /* ================= PRINT STYLES ================= */
+    @media print {
+        /* மெனு, பட்டன், ஃபில்டர், கார்டுகள் எல்லாத்தையும் மறைக்கிறோம் */
+        .filter-bar, .topbar, .sidebar, .btn, .quick-action-btn, .quick-menu, .print-btn, .pnl-cards { 
+            display: none !important; 
+        }
+        
+        .content-area { padding: 0 !important; margin: 0 !important; }
+        .statement-card { box-shadow: none !important; border: none !important; padding: 0 !important; }
+
+        /* கிளிக் ஐகான்களை மறைக்கிறோம் */
+        #expToggleIcon, #cogsToggleIcon { 
+            display: none !important; 
+        }
+        
+        /* ஹெடர் பேக்ரவுண்ட் கலரை வெள்ளையா மாத்துறோம் */
+        .clickable-header { 
+            background: transparent !important; 
+            color: black !important; 
+        }
+
+        /* ப்ரிண்ட்-ல கம்பெனி பேர் தெரிய */
+        .print-only-header { display: block !important; }
+        .no-print { display: none !important; }
+    }
+</style>
+
+<!-- 📅 DATE FILTER & PRINT BUTTONS -->
+<div class="filter-bar">
+    <form method="GET" style="display: flex; gap: 15px; align-items: end; width: 100%;">
+        <div>
+            <label style="font-weight: bold; font-size: 13px; margin-bottom: 5px; display: block;">From Date</label>
+            <input type="date" name="start_date" value="{{ start_date }}" required>
+        </div>
+        <div>
+            <label style="font-weight: bold; font-size: 13px; margin-bottom: 5px; display: block;">To Date</label>
+            <input type="date" name="end_date" value="{{ end_date }}" required>
+        </div>
+        <button type="submit" class="btn" style="padding: 9px 20px;">Filter Report</button>
+        <a href="{{ url_for('company_pnl') }}" class="btn" style="padding: 9px 20px; background: #666;">Reset (Current FY)</a>
+        
+        <button type="button" class="btn print-btn" onclick="window.print()" style="padding: 9px 20px; background: #0a2240; margin-left: auto;">🖨️ Print P&L</button>
+    </form>
+</div>
+
+<!-- Top KPI Cards -->
+<div class="pnl-cards">
+    <div class="pnl-card sales">
+        <h4>Total Net Sales</h4>
+        <h2>₹ {{ net_sales | inr }}</h2>
+    </div>
+    <div class="pnl-card cogs">
+        <h4>Direct Project Costs</h4>
+        <h2>₹ {{ project_expenses | inr }}</h2>
+    </div>
+    <div class="pnl-card exp">
+        <h4>Operating Expenses</h4>
+        <h2>₹ {{ general_expenses | inr }}</h2>
+    </div>
+    <div class="pnl-card profit">
+        <h4>Net Company Profit</h4>
+        <h2>₹ {{ net_profit | inr }}</h2>
+    </div>
+</div>
+
+<!-- Detailed P&L Statement -->
+<div class="statement-card">
+    
+    <div class="print-only-header" style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px;">
+        <h2 style="margin: 0; color: #000;">GOMS ELECTRICALS PVT LTD</h2>
+        <p style="margin: 5px 0;">Profit & Loss Statement ({{ start_date }} to {{ end_date }})</p>
+    </div>
+
+    <h3 class="no-print">📑 Profit & Loss Statement ({{ start_date }} to {{ end_date }})</h3>
+    
+    {% set gross_profit = net_sales - project_expenses %}
+    
+    <table class="pnl-table">
+        <thead>
+            <tr>
+                <th>Particulars</th>
+                <th class="amount">Amount (₹)</th>
+            </tr>
+        </thead>
+        
+        <!-- 1. REVENUE -->
+        <tbody>
+            <tr>
+                <td class="sub-heading" colspan="2">1. REVENUE (Income)</td>
+            </tr>
+            <tr>
+                <td class="indent">Gross Sales (Billed to Clients)</td>
+                <td class="amount">{{ gross_sales | inr }}</td>
+            </tr>
+            <tr>
+                <td class="indent">Less: Credit Notes (Sales Return)</td>
+                <td class="amount" style="color: #e31e24;">- {{ cn_amount | inr }}</td>
+            </tr>
+            <tr class="total-row" style="background: #f1f5f9;">
+                <td>Net Sales (A)</td>
+                <td class="amount">{{ net_sales | inr }}</td>
+            </tr>
+        </tbody>
+
+        <!-- 2. DIRECT COSTS (Accordion) -->
+        <tbody>
+            <tr class="sub-heading clickable-header" onclick="toggleCogs()">
+                <td colspan="2" style="padding-top: 20px;">
+                    2. DIRECT COSTS (COGS) 
+                    <span id="cogsToggleIcon" class="no-print" style="float: right; font-size: 12px; color: #666;">▼ Click to Expand</span>
+                </td>
+            </tr>
+            <tr>
+                <td class="indent">Project Expenses (Materials, Labour, etc.)</td>
+                <td class="amount">{{ project_expenses | inr }}</td>
+            </tr>
+            <tr class="total-row">
+                <td>Total Direct Costs (B)</td>
+                <td class="amount">{{ project_expenses | inr }}</td>
+            </tr>
+        </tbody>
+        
+        <!-- COGS Detailed Breakdown -->
+        <tbody id="cogsDetailsBody" style="display: none; background: #f9fbfc;">
+            {% for c in cogs_list %}
+            <tr>
+                <td class="indent" style="padding-left: 50px !important;">↳ {{ c['category'] or 'Project Material' }}</td>
+                <td class="amount" style="color: #666;">{{ c['total'] | inr }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+
+        <!-- 3. GROSS PROFIT -->
+        <tbody>
+            <tr class="gross-profit">
+                <td>GROSS PROFIT (A - B)</td>
+                <td class="amount">₹ {{ gross_profit | inr }}</td>
+            </tr>
+        </tbody>
+
+        <!-- 4. INDIRECT EXPENSES (Accordion) -->
+        <tbody>
+            <tr class="sub-heading clickable-header" onclick="toggleExpenses()">
+                <td colspan="2" style="padding-top: 20px;">
+                    3. OPERATING / INDIRECT EXPENSES 
+                    <span id="expToggleIcon" class="no-print" style="float: right; font-size: 12px; color: #666;">▼ Click to Expand</span>
+                </td>
+            </tr>
+            
+            <tr class="total-row">
+                <td>Total Operating Expenses (C)</td>
+                <td class="amount">{{ general_expenses | inr }}</td>
+            </tr>
+        </tbody>
+            
+        <!-- Indirect Expenses Detailed Breakdown -->
+        <tbody id="expenseDetailsBody" style="display: none; background: #f9fbfc;">
+            {% for exp in exp_list %}
+            <tr>
+                <td class="indent" style="padding-left: 50px !important;">↳ {{ exp['category'] }} (Office/Admin)</td>
+                <td class="amount" style="color: #666;">{{ exp['total'] | inr }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td class="indent" colspan="2" style="color: #999; text-align: center;">No indirect expenses recorded.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+
+        <!-- 5. NET PROFIT -->
+        <tbody>
+            <tr class="net-profit">
+                <td>NET PROFIT (Gross Profit - C)</td>
+                <td class="amount">₹ {{ net_profit | inr }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div style="margin-top: 20px; font-size: 13px; color: #666; text-align: right;">
+        * This is a system-generated report from {{ start_date }} to {{ end_date }}.
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Direct Cost (COGS) Toggle
+    function toggleCogs() {
+        const body = document.getElementById('cogsDetailsBody');
+        const icon = document.getElementById('cogsToggleIcon');
+        
+        if (body.style.display === 'none') {
+            body.style.display = 'table-row-group';
+            icon.innerText = '▲ Click to Hide';
+            icon.style.color = '#e31e24';
+        } else {
+            body.style.display = 'none';
+            icon.innerText = '▼ Click to Expand';
+            icon.style.color = '#666';
+        }
+    }
+
+    // Indirect Expenses Toggle
+    function toggleExpenses() {
+        const body = document.getElementById('expenseDetailsBody');
+        const icon = document.getElementById('expToggleIcon');
+        
+        if (body.style.display === 'none') {
+            body.style.display = 'table-row-group';
+            icon.innerText = '▲ Click to Hide';
+            icon.style.color = '#e31e24';
+        } else {
+            body.style.display = 'none';
+            icon.innerText = '▼ Click to Expand';
+            icon.style.color = '#666';
+        }
+    }
+</script>
+{% endblock %}

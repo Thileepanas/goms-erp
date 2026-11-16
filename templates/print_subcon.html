@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Subcon Bill - {{ bill['id'] }}</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f9; color: #000; margin: 0; padding: 20px; font-size: 13px; }
+        .container { max-width: 800px; margin: 0 auto; background: #fff; padding: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-top: 5px solid #0a2240; border-bottom: 5px solid #e31e24; }
+        
+        .header { display: flex; align-items: center; border-bottom: 3px solid #0a2240; padding-bottom: 15px; margin-bottom: 20px; }
+        .header img { max-height: 70px; margin-right: 20px; }
+        .header-text h1 { margin: 0; color: #0a2240; font-size: 26px; font-weight: 800; }
+        .header-text p { margin: 5px 0 0 0; font-size: 12px; font-weight: 600; color: #333; }
+
+        .title { text-align: center; margin-bottom: 20px; }
+        .title h2 { display: inline-block; background: #0a2240; color: white; padding: 8px 40px; border-radius: 5px; margin: 0; font-size: 20px; letter-spacing: 1px; border-bottom: 4px solid #e31e24; }
+
+        .info-section { display: flex; justify-content: space-between; margin-bottom: 20px; background: #f9fbfc; padding: 15px; border-radius: 8px; border: 1px solid #ddd; }
+        .info-section div p { margin: 5px 0; }
+        .info-section div span { font-weight: bold; color: #0a2240; }
+
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { border: 1px solid #333; padding: 8px; text-align: left; }
+        th { background: #0a2240; color: white; font-weight: bold; text-align: center; }
+        td.amt { text-align: right; }
+        td.center { text-align: center; }
+
+        .totals { width: 50%; margin-left: auto; border: 1px solid #333; }
+        .totals table { margin: 0; }
+        .totals td { border: 1px solid #333; padding: 8px 12px; font-weight: bold; }
+        .totals .grand-total { background: #0a2240; color: white; font-size: 15px; border-top: 3px solid #e31e24; }
+        .totals .deduction { color: #e31e24; }
+
+        .signatures { display: flex; justify-content: space-between; margin-top: 50px; border-top: 2px solid #0a2240; padding-top: 20px; }
+        .sig-box { text-align: center; width: 45%; }
+        .sig-box .label { background: #0a2240; color: white; display: inline-block; padding: 5px 20px; border-radius: 5px; font-weight: bold; margin-bottom: 30px; }
+
+        @media print {
+            body { background: white; padding: 0; }
+            .container { box-shadow: none; padding: 0; max-width: 100%; border-top: none; border-bottom: none; }
+            .no-print { display: none !important; }
+            th, .totals .grand-total, .title h2, .sig-box .label {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="no-print" style="text-align: right; max-width: 800px; margin: 0 auto 15px auto;">
+        <button onclick="window.print()" style="padding: 10px 20px; background: #176b38; color: white; border: none; font-weight: bold; border-radius: 5px; cursor: pointer; font-size: 16px;">🖨️ Print / Save as PDF</button>
+    </div>
+
+    {% set ns = namespace(work_total=0) %}
+    {% for item in items %}
+        {% set ns.work_total = ns.work_total + (item['amount'] or 0) %}
+    {% endfor %}
+
+    <div class="container">
+        <div class="header">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo">
+            <div class="header-text">
+                <h1>GOMS ELECTRICALS PVT LTD</h1>
+                <p>#43, RK Nagar First Main Road, Mandaveli, Chennai Dist – 600028</p>
+            </div>
+        </div>
+
+        <div class="title">
+            <h2>SUBCONTRACTOR BILL</h2>
+        </div>
+
+        <div class="info-section">
+            <div>
+                <p><span>Bill No</span> : SUB-{{ bill['id'] }}</p>
+                <p><span>Bill Date</span> : {{ bill['bill_date'] | dateformat }}</p>
+                <p><span>Project</span> : {{ bill['project_name'] }}</p>
+            </div>
+            <div style="text-align: right;">
+                <p><span>Subcontractor</span> : <strong style="font-size: 15px; color: #e31e24;">{{ bill['subcon_name'] }}</strong></p>
+                <p><span>Remarks</span> : {{ bill['remarks'] or '-' }}</p>
+            </div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 10%;">S.No</th>
+                    <th style="width: 50%;">Work Description</th>
+                    <th style="width: 15%;">Qty</th>
+                    <th style="width: 12%;">Rate (₹)</th>
+                    <th style="width: 13%;">Amount (₹)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td class="center">{{ loop.index }}</td>
+                    <td>{{ item['material_name'] }}</td>
+                    <td class="center">{{ item['quantity'] }} {{ item['unit'] or '' }}</td>
+                    <td class="amt">{{ (item['rate'] or 0) | inr }}</td>
+                    <td class="amt">{{ (item['amount'] or 0) | inr }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="center">No work items in this bill.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="totals">
+            <table>
+                <tr>
+                    <td style="text-align: right;">Total Work Amount</td>
+                    <td class="amt">₹ {{ ns.work_total | inr }}</td>
+                </tr>
+                
+                {% if bill['material_deduction'] and bill['material_deduction'] > 0 %}
+                <tr>
+                    <td style="text-align: right; color: #e31e24;">Less: Material Issued (Deduction)</td>
+                    <td class="amt deduction">- ₹ {{ bill['material_deduction'] | inr }}</td>
+                </tr>
+                {% endif %}
+                
+                <tr class="grand-total">
+                    <td style="text-align: right;">NET PAYABLE</td>
+                    <td class="amt">₹ {{ (bill['total_amount'] or 0) | inr }}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="signatures">
+            <div class="sig-box">
+                <div class="label">Subcon Signature</div>
+                <div style="border-bottom: 1px solid #000; width: 80%; margin: 40px auto 0;"></div>
+            </div>
+            <div class="sig-box">
+                <div class="label">For GOMS ELECTRICALS</div>
+                <p style="font-weight: bold; margin-bottom: 10px; color: #0a2240;">Authorised Signatory</p>
+                <div style="border: 1px solid #000; height: 60px; width: 80%; margin: 0 auto;"></div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

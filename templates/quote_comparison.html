@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Quote Comparison{% endblock %}
+{% block page_title %}Rate Comparison - IND-{{ indent['id'] }}{% endblock %}
+
+{% block content %}
+<style>
+    .brand-badge { background: #e3f2fd; color: #0d47a1; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; display: inline-block; margin-top: 4px; }
+    .rank-l1 { background: #e0f5e8; color: #176b38; font-weight: bold; border: 2px solid #176b38 !important; }
+    .rank-l2 { background: #fff8e1; color: #e65100; font-weight: bold; }
+</style>
+
+<div style="margin-bottom: 20px;">
+    <a href="{{ url_for('indent_quotes', id=indent['id']) }}" class="btn" style="background: #6c757d;">⬅️ Back to Quotes</a>
+</div>
+
+<div class="card">
+    <h3>Vendor Comparison Table (By Brand)</h3>
+    <p style="font-size: 13px; color: #666; margin-bottom: 15px;">Ranks (L1, L2) are calculated <strong>separately for each Brand</strong>. L1 indicates the lowest rate for that specific brand.</p>
+    
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr style="background: #f1f5f9;">
+                    <th>Material</th>
+                    <th>Qty</th>
+                    {% for q in quotes %}
+                        <th style="text-align: center; min-width: 150px;">
+                            {{ q['vendor_name'] }}<br>
+                            <div class="brand-badge">{{ q['brand_name'] or 'Unspecified' }}</div><br>
+                            <span style="font-size: 11px; font-weight: normal; color:#666;">{{ q['delivery_days'] }} Days | {{ q['payment_terms'] }}</span>
+                        </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td><strong>{{ item['material_name'] }}</strong></td>
+                    <td>{{ item['quantity'] }}</td>
+                    
+                    {% for q in quotes %}
+                        {% set rate = matrix.get(item['id'], {}).get(q['id'], 0) %}
+                        {% set rank = rankings.get(item['id'], {}).get(q['id'], 0) %}
+                        
+                        <td style="text-align: center; font-weight: bold;" class="{% if rank == 1 %}rank-l1{% elif rank == 2 %}rank-l2{% endif %}">
+                            {% if rate > 0 %}
+                                ₹{{ rate | inr }}
+                                {% if rank > 0 %}
+                                    <br><span style="font-size: 11px;">(L{{ rank }} - {{ q['brand_name'] or 'N/A' }})</span>
+                                {% endif %}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr style="background: #0a2240; color: white; font-weight: bold;">
+                    <td colspan="2" style="text-align: right;">TOTAL AMOUNT:</td>
+                    {% for q in quotes %}
+                        <td style="text-align: center;">₹{{ q['total_amount'] | inr }}</td>
+                    {% endfor %}
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+<!-- Approve Section -->
+<div class="card" style="background: #fff8e1; border-left: 4px solid #ff9800;">
+    <h3>GM Approval</h3>
+    <p style="margin-bottom: 15px;">Select a vendor to approve. Once approved, you can generate a PO for them.</p>
+    
+    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+        {% for q in quotes %}
+            <div style="background: white; border: 1px solid #ccc; padding: 15px; border-radius: 6px; width: 250px;">
+                <h4 style="margin: 0 0 5px 0;">{{ q['vendor_name'] }}</h4>
+                <span class="brand-badge" style="margin-bottom: 10px;">{{ q['brand_name'] or 'Unspecified' }}</span>
+                <p style="margin: 5px 0; font-size: 12px; color: #666;">Delivery: {{ q['delivery_days'] }} Days</p>
+                <p style="margin: 0 0 10px 0; font-weight: bold;">Total: ₹{{ q['total_amount'] | inr }}</p>
+                
+                {% if q['status'] == 'Approved' %}
+                    <span style="color: green; font-weight: bold; display: block; margin-bottom: 10px;">✅ Approved</span>
+                    <a href="{{ url_for('generate_po_from_quote', quote_id=q['id']) }}" class="btn" style="background: #0a2240; width: 100%; text-align: center;" onclick="return confirm('Generate Purchase Order for this vendor?');">🚀 Generate PO</a>
+                {% elif q['status'] == 'Rejected' %}
+                    <span style="color: red; font-weight: bold;">❌ Rejected</span>
+                {% else %}
+                    <a href="{{ url_for('approve_quote', quote_id=q['id']) }}" class="btn" style="background: #176b38; width: 100%; text-align: center;" onclick="return confirm('Approve this vendor?');">Approve Vendor</a>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

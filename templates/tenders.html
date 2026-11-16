@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Tenders{% endblock %}
+{% block page_title %}Tender & Estimation Management{% endblock %}
+
+{% block content %}
+<div class="card" style="background: #f9fbfc;">
+    <h3>Create New Tender</h3>
+    <form method="POST">
+        <div class="grid-3">
+            <div>
+                <label>Tender No / Project Name *</label>
+                <input name="tender_no" required placeholder="e.g. TDR-2026-001">
+            </div>
+            <div>
+                <label>Client Name *</label>
+                <input name="client_name" required placeholder="Client Name">
+            </div>
+            <div>
+                <label>Tender Date</label>
+                <input type="date" name="tender_date">
+            </div>
+            <div>
+                <label>Submission Date</label>
+                <input type="date" name="submission_date">
+            </div>
+        </div>
+        <button type="submit" class="btn" style="margin-top: 15px; background: #0d47a1;">Create Tender</button>
+    </form>
+</div>
+
+<div class="card">
+    <h3>Tender List</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Tender No</th>
+                    <th>Client</th>
+                    <th>Submission Date</th>
+                    <th>Estimated Value (₹)</th>
+                    <th>Status</th>
+                    <th class="no-print" style="text-align: center;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in tenders %}
+                <tr>
+                    <td><strong>{{ t['tender_no'] }}</strong></td>
+                    <td>{{ t['client_name'] }}</td>
+                    <td>{{ t['submission_date'] | dateformat }}</td>
+                    <td style="font-weight: bold; color: #0d47a1;">₹ {{ t['estimated_value'] | inr }}</td>
+                    <td>
+                        {% if t['status'] == 'Won' %}<span style="color: green; font-weight: bold;">Won 🎉</span>
+                        {% elif t['status'] == 'Lost' %}<span style="color: red; font-weight: bold;">Lost</span>
+                        {% else %}<span style="color: #ff9800; font-weight: bold;">Pending</span>{% endif %}
+                    </td>
+                    <td class="no-print" style="text-align: center;">
+                        <div style="display: flex; gap: 5px; justify-content: center; flex-wrap: wrap;">
+                            <a href="{{ url_for('tender_items', id=t['id']) }}" class="btn" style="padding: 4px 8px; font-size: 12px; background: #0a2240;">📝 Estimate</a>
+                            
+                            {% if t['status'] == 'Pending' %}
+                                <!-- FIX: Added confirm to prevent accidental status change -->
+                                <a href="{{ url_for('update_tender_status', id=t['id'], status='Won') }}" class="btn" style="padding: 4px 8px; font-size: 12px; background: #176b38;" onclick="return confirm('Mark this tender as WON?');">✅ Won</a>
+                                <a href="{{ url_for('update_tender_status', id=t['id'], status='Lost') }}" class="btn" style="padding: 4px 8px; font-size: 12px; background: #e31e24;" onclick="return confirm('Mark this tender as LOST?');">❌ Lost</a>
+                            {% elif t['status'] == 'Won' %}
+                                <a href="{{ url_for('convert_tender', id=t['id']) }}" class="btn" style="padding: 4px 8px; font-size: 12px; background: #ff9800; color: black;" onclick="return confirm('Convert this tender to a Project? This will copy BOQ items.');">🚀 To Project</a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" style="text-align: center;">No tenders found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

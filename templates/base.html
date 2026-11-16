@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GOMS ERP | {% block title %}{% endblock %}</title>
+    <!-- CSS File Link -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    {% block head %}{% endblock %}
+</head>
+<body>
+
+{% set user_role = session.get('role', 'Admin') %}
+{% set is_supervisor = user_role == 'Site Supervisor' %}
+{% set is_admin = user_role == 'Admin' %}
+{% set role_class = 'admin' if user_role == 'Admin' else ('gm' if user_role in ['GM', 'Manager'] else ('supervisor' if user_role == 'Site Supervisor' else 'other')) %}
+
+<!-- 1. Sidebar -->
+{% include 'partials/sidebar.html' %}
+
+<div class="main-content">
+    <!-- 2. Topbar -->
+    {% include 'partials/topbar.html' %}
+
+    <div class="content-area">
+        <!-- 3. Flash Messages -->
+        {% include 'partials/flash.html' %}
+        
+        <!-- Main Page Content -->
+        {% block content %}{% endblock %}
+    </div>
+</div>
+
+<!-- 4. Floating Quick Actions -->
+{% include 'partials/quick_actions.html' %}
+
+<!-- JS Shortcuts URLs (for main.js) -->
+<script>
+window.APP_URLS = {
+    newBill:      "{{ url_for('accounts_entry', tab='tab1') }}",
+    newPayment:   "{{ url_for('accounts_entry', tab='tab2') }}",
+    newIndent:    "{{ url_for('indents') }}",
+    workProgress: "{{ url_for('work_progress') }}",
+    clientLedger: "{{ url_for('client_ledger') }}",
+    projectPnl:   "{{ url_for('accounts') }}",
+    dashboard:    "{{ url_for('dashboard') }}",
+};
+</script>
+
+<!-- JS File Link -->
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+<!-- Page Specific Scripts (Charts etc) -->
+{% block scripts %}{% endblock %}
+
+</body>
+</html>

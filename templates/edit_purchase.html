@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Edit Purchase{% endblock %}
+{% block page_title %}Modify Purchase Invoice{% endblock %}
+
+{% block content %}
+<div class="card" style="background: #f9fbfc;">
+    <h3>Modify Purchase Invoice (Inv: {{ purchase['invoice_number'] }})</h3>
+    
+    <form method="POST" action="{{ url_for('edit_purchase', id=purchase['id']) }}">
+        <div class="grid-3">
+            <div>
+                <label>Project Name *</label>
+                <input type="text" name="project_name" value="{{ purchase['project_name'] or '' }}" required style="padding: 10px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+            </div>
+            <div>
+                <label>Supplier Name *</label>
+                <input type="text" name="supplier_name" value="{{ purchase['supplier_name'] or '' }}" required style="padding: 10px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+            </div>
+            <div>
+                <label>Invoice Number *</label>
+                <input type="text" name="invoice_number" value="{{ purchase['invoice_number'] or '' }}" required style="padding: 10px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+            </div>
+            <div>
+                <label>Invoice Date *</label>
+                <input type="date" name="invoice_date" value="{{ purchase['invoice_date'] or '' }}" required style="padding: 10px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+            </div>
+            
+            <div style="grid-column: 1 / -1;">
+                <label>Material Description / Remarks</label>
+                <input type="text" name="material_description" value="{{ purchase['material_description'] or '' }}" placeholder="e.g. Supply of cables" style="padding: 10px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+            </div>
+        </div>
+
+        <hr style="margin: 20px 0; border-top: 1px dashed #ccc;">
+        
+        <h4 style="margin-bottom: 10px; color: var(--primary-blue);">Financial Details</h4>
+        <div class="grid-3" style="background: white; padding: 15px; border: 1px solid #ddd; border-radius: 6px;">
+            <div>
+                <label>Quantity *</label>
+                <input type="number" name="quantity" id="edit_qty" value="{{ purchase['quantity'] or 0 }}" step="0.01" required style="padding: 10px; border: 1px solid #ccc; border-radius: 4px; width: 100%;" oninput="calcEditTotal()">
+            </div>
+            <div>
+                <label>Rate (₹) *</label>
+                <input type="number" name="rate" id="edit_rate" value="{{ purchase['rate'] or 0 }}" step="0.01" required style="padding: 10px; border: 1px solid #ccc; border-radius: 4px; width: 100%;" oninput="calcEditTotal()">
+            </div>
+            <div>
+                <label>GST %</label>
+                <select name="gst_rate" id="edit_gst" style="padding: 10px; border: 1px solid #ccc; border-radius: 4px; width: 100%;" onchange="calcEditTotal()">
+                    <option value="0" {% if purchase['gst_rate'] == 0 %}selected{% endif %}>0%</option>
+                    <option value="5" {% if purchase['gst_rate'] == 5 %}selected{% endif %}>5%</option>
+                    <option value="12" {% if purchase['gst_rate'] == 12 %}selected{% endif %}>12%</option>
+                    <option value="18" {% if purchase['gst_rate'] == 18 %}selected{% endif %}>18%</option>
+                    <option value="28" {% if purchase['gst_rate'] == 28 %}selected{% endif %}>28%</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Calculation Box -->
+        <div style="margin-top: 20px; width: 50%; margin-left: auto; border: 1px solid #ccc; border-radius: 6px; background: white; overflow: hidden;">
+            <table style="margin: 0; width: 100%;">
+                <tr>
+                    <td style="padding: 10px 15px; border-bottom: 1px solid #eee; font-weight: bold;">Sub Total</td>
+                    <td style="padding: 10px 15px; border-bottom: 1px solid #eee; text-align: right;">₹ <span id="disp_subtotal">0.00</span></td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px 15px; border-bottom: 1px solid #eee; font-weight: bold;">GST Amount</td>
+                    <td style="padding: 10px 15px; border-bottom: 1px solid #eee; text-align: right;">₹ <span id="disp_gst">0.00</span></td>
+                </tr>
+                <tr style="background: #0a2240; color: white;">
+                    <td style="padding: 12px 15px; font-weight: bold; font-size: 16px;">Grand Total</td>
+                    <td style="padding: 12px 15px; text-align: right; font-weight: bold; font-size: 16px;">₹ <span id="disp_total">0.00</span></td>
+                </tr>
+            </table>
+        </div>
+        
+        <div style="display: flex; gap: 10px; margin-top: 25px;">
+            <button type="submit" class="btn" style="flex: 1; background: #0d47a1; padding: 12px;">Update Purchase Record</button>
+            <a href="{{ url_for('purchases') }}" class="btn" style="flex: 1; background: #666; text-align: center; padding: 12px;">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function calcEditTotal() {
+        const qty = parseFloat(document.getElementById('edit_qty').value) || 0;
+        const rate = parseFloat(document.getElementById('edit_rate').value) || 0;
+        const gst = parseFloat(document.getElementById('edit_gst').value) || 0;
+
+        const subtotal = qty * rate;
+        const gstAmt = subtotal * (gst / 100);
+        const total = subtotal + gstAmt;
+
+        // Indian Formatting
+        const fmt = (num) => num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        document.getElementById('disp_subtotal').textContent = fmt(subtotal);
+        document.getElementById('disp_gst').textContent = fmt(gstAmt);
+        document.getElementById('disp_total').textContent = fmt(total);
+    }
+
+    // Calculate on page load
+    document.addEventListener("DOMContentLoaded", function() {
+        calcEditTotal();
+    });
+</script>
+{% endblock %}

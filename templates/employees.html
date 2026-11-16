@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Employee Directory{% endblock %}
+{% block page_title %}Employee Directory{% endblock %}
+
+{% block content %}
+<style>
+    .grid-form { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
+    @media(max-width: 768px) { .grid-form { grid-template-columns: 1fr; } }
+</style>
+
+<!-- Add Employee Form -->
+<div class="card" style="background: #f9fbfc; border-top: 4px solid var(--primary-blue);">
+    <h3>Add New Employee</h3>
+    <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="grid-form">
+            <div>
+                <label>Employee Code *</label>
+                <input type="text" name="emp_code" required placeholder="e.g. EMP001">
+            </div>
+            <div>
+                <label>Full Name *</label>
+                <input type="text" name="name" required placeholder="Employee Name">
+            </div>
+            <div>
+                <label>Designation</label>
+                <input type="text" name="designation" placeholder="e.g. Site Engineer">
+            </div>
+            <div>
+                <label>Department</label>
+                <input type="text" name="department" placeholder="e.g. Operations">
+            </div>
+            <div>
+                <label>Join Date</label>
+                <input type="date" name="join_date">
+            </div>
+            <div>
+                <label>Phone Number</label>
+                <input type="text" name="phone" placeholder="10 digit mobile number" maxlength="10" oninput="this.value = this.value.replace(/[^0-9]/g, '');">
+            </div>
+            <div>
+                <label>Email Address</label>
+                <input type="email" name="email" placeholder="Email">
+            </div>
+            <div>
+                <label>Basic Salary (₹)</label>
+                <input type="number" name="basic_salary" step="0.01" min="0" value="0" placeholder="0.00">
+            </div>
+            <div>
+                <label>HRA (₹)</label>
+                <input type="number" name="hra" step="0.01" min="0" value="0">
+            </div>
+            <div>
+                <label>Other Allowances (₹)</label>
+                <input type="number" name="allowances" step="0.01" min="0" value="0">
+            </div>
+            <div>
+                <label>PF Deduction (₹)</label>
+                <input type="number" name="pf_amount" step="0.01" min="0" value="0">
+            </div>
+            <div>
+                <label>TDS (%)</label>
+                <input type="number" name="tds_percent" step="0.01" min="0" max="100" value="0">
+            </div>
+        </div>
+        <button type="submit" class="btn" style="margin-top: 15px; background: #176b38;">Add Employee</button>
+    </form>
+</div>
+
+<!-- Employee List -->
+<div class="card">
+    <h3>Existing Employees</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Name</th>
+                    <th>Designation</th>
+                    <th>Department</th>
+                    <th>Phone</th>
+                    <th>Basic Salary</th>
+                    <th>Status</th>
+                    <th class="no-print" style="text-align: center;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for e in employees %}
+                <tr>
+                    <td><strong>{{ e['emp_code'] }}</strong></td>
+                    <td>{{ e['name'] }}</td>
+                    <td>{{ e['designation'] or '-' }}</td>
+                    <td>{{ e['department'] or '-' }}</td>
+                    <td>{{ e['phone'] or '-' }}</td>
+                    <td>{{ e['basic_salary'] | inr }}</td>
+                    <td>
+                        {% if e['is_active'] == 1 %}
+                            <span style="background: #e0f5e8; color: #176b38; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">Active ✅</span>
+                        {% else %}
+                            <span style="background: #fef2f2; color: #991b1b; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">Inactive ❌</span>
+                        {% endif %}
+                    </td>
+                    <td class="no-print" style="text-align: center;">
+                        <div style="display: flex; gap: 5px; justify-content: center; align-items: center;">
+                            
+                            <!-- Profile Button -->
+                            <a href="{{ url_for('employee_profile', id=e['id']) }}" class="btn" style="padding: 6px 12px; font-size: 12px; background: #0d47a1;">📁 Profile</a>
+                            
+                            <!-- Toggle Active/Inactive Button -->
+                            {% if is_admin_or_gm %}
+                            <a href="{{ url_for('toggle_employee', id=e['id']) }}" class="btn" style="padding: 6px 12px; font-size: 12px; background: {{ '#e31e24' if e['is_active'] == 1 else '#176b38' }};">
+                                {{ 'Deactivate' if e['is_active'] == 1 else 'Activate' }}
+                            </a>
+                            {% endif %}
+                            
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="8" style="text-align: center; padding: 20px;">No employees found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

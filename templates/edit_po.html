@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}Edit PO{% endblock %}
+{% block page_title %}Modify Purchase Order{% endblock %}
+
+{% block content %}
+<div class="card" style="background: #f9fbfc;">
+    <h3>Modify Purchase Order (ID: {{ po['id'] }})</h3>
+    
+    <datalist id="material_datalist">
+        {% for m in materials %}
+            <option value="{{ m['material_name'] | e }}"></option>
+        {% endfor %}
+    </datalist>
+
+    <form method="POST">
+        <div class="grid-3">
+            <div>
+                <label>Project Name *</label>
+                <select name="project_name" required style="padding: 8px; border-radius: 4px; border: 1px solid #ccc; width: 100%;">
+                    {% for p in project_list %}
+                        <option value="{{ p['project_name'] }}" {% if p['project_name'] == po['project_name'] %}selected{% endif %}>{{ p['project_name'] }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Vendor Name *</label>
+                <select name="vendor_name" required style="padding: 8px; border-radius: 4px; border: 1px solid #ccc; width: 100%;">
+                    {% for v in vendors %}
+                        <option value="{{ v['party_name'] }}" {% if v['party_name'] == po['vendor_name'] or v['party_name'] == new_vendor %}selected{% endif %}>{{ v['party_name'] }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Vendor Quotation No</label>
+                <input type="text" name="quotation_no" value="{{ po['quotation_no'] or '' }}" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc; width: 100%;">
+            </div>
+            <div>
+                <label>PO Date *</label>
+                <input type="date" name="po_date" id="po_date" value="{{ po['po_date'] or '' }}" required style="padding: 8px; border-radius: 4px; border: 1px solid #ccc; width: 100%;">
+            </div>
+            <div style="grid-column: 1 / -1;">
+                <label>Delivery Address</label>
+                <input type="text" name="delivery_address" value="{{ po['delivery_address'] or '' }}" placeholder="Type delivery address here..." style="padding: 8px; border-radius: 4px; border: 1px solid #ccc; width: 100%;">
+            </div>
+        </div>
+
+        <hr style="margin: 20px 0; border-top: 1px dashed #ccc;">
+        
+        <h4 style="margin-bottom: 10px; color: var(--primary-blue);">Materials List</h4>
+        <div class="table-wrap">
+            <table id="itemsTable">
+                <thead>
+                    <tr>
+                        <th style="width: 25%;">Material (Type to search) *</th>
+                        <th style="width: 15%;">HSN Code</th>
+                        <th style="width: 10%;">Qty *</th>
+                        <th style="width: 10%;">Unit</th>
+                        <th style="width: 15%;">Rate (₹) *</th>
+                        <th style="width: 10%;">GST %</th>
+                        <th style="width: 15%; text-align: center;">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="itemsBody">
+                    {% for item in items %}
+                    <tr>
+                        <td><input type="text" name="material_name[]" value="{{ item['material_name'] }}" list="material_datalist" required class="material-input" oninput="fillUnit(this)" style="padding: 8px; width: 100%; border: 1px solid #ccc; border-radius: 4px;"></td>
+                        <td><input type="text" name="hsn_code[]" value="{{ item['hsn_code'] or '' }}" style="padding: 8px; width: 100%; border: 1px solid #ccc; border-radius: 4px;"></td>
+                        <td><input type="number" name="quantity[]" value="{{ item['quantity'] }}" step="any" required style="padding: 8px; width: 100%; border: 1px solid #ccc; border-radius: 4px;"></td>
+                        <td><input type="text" name="unit[]" value="{{ item['unit'] or '' }}" class="unit-input" readonly style="padding: 8px; background: #e9ecef; width: 100%; border: 1px solid #ccc; border-radius: 4px;"></td>
+                        <td><input type="number" name="rate[]" value="{{ item['rate'] }}" step="any" required style="padding: 8px; width: 100%; border: 1px solid #ccc; border-radius: 4px;"></td>
+                        <td>
+                            <select name="gst_rate[]" style="padding: 8px; width: 100%; border: 1px solid #ccc; border-radius: 4px;">
+                                <option value="0" {% if item['gst_rate'] == 0 %}selected{% endif %}>0%</option>
+                                <option value="5" {% if item['gst_rate'] == 5 %}selected{% endif %}>5%</option>
+                                <option value="12" {% if item['gst_rate'] == 12 %}selected{% endif %}>12%</option>
+                                <option value="18" {% if item['gst_rate'] == 18 or not item['gst_rate'] %}selected{% endif %}>18%</option>
+                                <option value="28" {% if item['gst_rate'] == 28 %}selected{% endif %}>28%</option>
+                            </select>
+                        </td>
+                        <td style="text-align: center; white-space: nowrap;">
+                            <button type="button" onclick="addRowAfter(this)" class="btn" style="background: #176b38; padding: 6px 12px; font-size: 14px; margin-right: 5px;">+</button>
+                            <button type="button" onclick="removeRow(this)" class="btn" style="background: #e31e24; padding: 6px 12px; font-size: 14px;">X</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button type="submit" name="action" value="save" class="btn" style="flex: 1; padding: 12px; font-size: 16px;">Update PO</button>
+            <button type="submit" name="action" value="save_and_print" class="btn" style="flex: 1; padding: 12px; font-size: 16px; background: #0a2240;">Save & Print</button>
+            <a href="{{ url_for('po') }}" class="btn" style="flex: 1; padding: 12px; font-size: 16px; background: #e31e24; text-align: center;">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const materialUnits = {
+        {% for m in materials %}
+            {{ m['material_name'] | tojson }}: {{ m['unit'] | tojson }},
+        {% endfor %}
+    };
+
+    function addRowAfter(btn) {
+        const row = btn.closest('tr');
+        const newRow = document.createElement("tr");
+        newRow.innerHTML = `
+            <td>
+                <input type="text" name="material_name[]" list="material_datalist" required class="material-input" oninput="fillUnit(this)" placeholder="Type material name..." autocomplete="off" style="padding: 8px; width: 100%; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px;">
+            </td>
+            <td><input type="text" name="hsn_code[]" placeholder="HSN" style="padding: 8px; width: 100%; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px;"></td>
+            <td><input type="number" name="quantity[]" step="any" required style="padding: 8px; width: 100%; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px;"></td>
+            <td><input type="text" name="unit[]" class="unit-input" placeholder="Unit" style="padding: 8px; background: #e9ecef; width: 100%; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px;" readonly></td>
+            <td><input type="number" name="rate[]" step="any" required style="padding: 8px; width: 100%; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px;"></td>
+            <td>
+                <select name="gst_rate[]" style="padding: 8px; width: 100%; border: 1px solid #ccc; border-radius: 4px;">
+                    <option value="0">0%</option>
+                    <option value="5">5%</option>
+                    <option value="12">12%</option>
+                    <option value="18" selected>18%</option>
+                    <option value="28">28%</option>
+                </select>
+            </td>
+            <td style="text-align: center; white-space: nowrap;">
+                <button type="button" onclick="addRowAfter(this)" class="btn" style="background: #176b38; padding: 6px 12px; font-size: 14px; margin-right: 5px;">+</button>
+                <button type="button" onclick="removeRow(this)" class="btn" style="background: #e31e24; padding: 6px 12px; font-size: 14px;">X</button>
+            </td>
+        `;
+        row.after(newRow);
+    }
+
+    function removeRow(btn) {
+        const row = btn.closest('tr');
+        if (document.querySelectorAll("#itemsBody tr").length > 1) {
+            row.remove();
+        } else {
+            alert("At least one item is required.");
+        }
+    }
+
+    function fillUnit(inputElement) {
+        const val = inputElement.value;
+        const unit = materialUnits[val] || "";
+        const row = inputElement.closest('tr');
+        row.querySelector(".unit-input").value = unit;
+    }
+</script>
+{% endblock %}

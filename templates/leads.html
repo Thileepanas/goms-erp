@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Lead Tracker{% endblock %}
+{% block page_title %}Business Development - Lead Tracker{% endblock %}
+
+{% block content %}
+<style>
+    .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+    .s-new { background: #e3f2fd; color: #0d47a1; }
+    .s-discussion { background: #fff3cd; color: #856404; }
+    .s-proposal { background: #f8d7da; color: #721c24; }
+    .s-won { background: #d4edda; color: #155724; }
+    .s-lost { background: #f1f5f9; color: #666; }
+    .s-converted { background: #cce5ff; color: #004085; }
+</style>
+
+<div class="grid-2" style="grid-template-columns: 1fr 1.5fr; gap: 20px;">
+    <!-- Add Lead Form -->
+    <div class="card" style="background: #f9fbfc; border-top: 4px solid #0d47a1;">
+        <h3>Add New Lead</h3>
+        <form method="POST">
+            <div class="grid-2" style="gap: 10px;">
+                <div>
+                    <label>Lead Date *</label>
+                    <input type="date" name="lead_date" value="{{ today }}" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+                <div>
+                    <label>Client / Company *</label>
+                    <input type="text" name="client_name" required placeholder="e.g. ABC Builders" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+                <div>
+                    <label>Contact Person</label>
+                    <input type="text" name="contact_person" placeholder="Name" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+                <div>
+                    <label>Phone Number</label>
+                    <input type="text" name="phone" placeholder="Mobile" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+                <div style="grid-column: span 2;">
+                    <label>Project / Work Name *</label>
+                    <input type="text" name="project_name" required placeholder="e.g. TNHB Phase 2 Electrical Work" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+                <div>
+                    <label>Location</label>
+                    <input type="text" name="location" placeholder="City / Area" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+                <div>
+                    <label>Est. Value (₹)</label>
+                    <input type="number" name="estimated_value" step="0.01" value="0" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+                <div>
+                    <label>Source</label>
+                    <select name="source" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                        <option value="Reference">Reference</option>
+                        <option value="Website">Website</option>
+                        <option value="Cold Call">Cold Call</option>
+                        <option value="Tender Portal">Tender Portal</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Next Follow-up</label>
+                    <input type="date" name="next_followup" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+                <div style="grid-column: span 2;">
+                    <label>Remarks / Notes</label>
+                    <input type="text" name="remarks" placeholder="Discussion details..." style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+            </div>
+            <button type="submit" class="btn" style="width: 100%; margin-top: 15px; background: #176b38;">Save Lead</button>
+        </form>
+    </div>
+
+    <!-- Lead List -->
+    <div class="card">
+        <h3>All Leads</h3>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr style="background: #f1f5f9;">
+                        <th>Date</th>
+                        <th>Client & Project</th>
+                        <th>Value (₹)</th>
+                        <th>Status</th>
+                        <th style="text-align: center;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for l in leads %}
+                    <tr>
+                        <td>{{ l['lead_date'] | dateformat }}</td>
+                        <td>
+                            <strong>{{ l['client_name'] }}</strong><br>
+                            <span style="font-size: 12px; color: #666;">{{ l['project_name'] }}</span>
+                        </td>
+                        <td style="font-weight: bold; color: #0d47a1;">{{ l['estimated_value'] | inr }}</td>
+                        <td>
+                            {% if l['status'] == 'New' %}<span class="status-badge s-new">New</span>
+                            {% elif l['status'] == 'Discussion' %}<span class="status-badge s-discussion">Discussion</span>
+                            {% elif l['status'] == 'Proposal Sent' %}<span class="status-badge s-proposal">Proposal</span>
+                            {% elif l['status'] == 'Won' %}<span class="status-badge s-won">Won</span>
+                            {% elif l['status'] == 'Lost' %}<span class="status-badge s-lost">Lost</span>
+                            {% elif l['status'] == 'Converted to Tender' %}<span class="status-badge s-converted">Converted</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align: center;">
+                            <div style="display: flex; gap: 5px; justify-content: center; flex-wrap: wrap;">
+                                {% if l['status'] == 'New' %}
+                                    <a href="{{ url_for('update_lead_status', id=l['id'], status='Discussion') }}" class="btn" style="padding: 4px 8px; font-size: 11px; background: #ff9800;">Discuss</a>
+                                {% elif l['status'] == 'Discussion' %}
+                                    <a href="{{ url_for('update_lead_status', id=l['id'], status='Proposal Sent') }}" class="btn" style="padding: 4px 8px; font-size: 11px; background: #0d47a1;">Send Proposal</a>
+                                {% elif l['status'] == 'Proposal Sent' %}
+                                    <a href="{{ url_for('update_lead_status', id=l['id'], status='Won') }}" class="btn" style="padding: 4px 8px; font-size: 11px; background: #176b38;">✅ Won</a>
+                                    <a href="{{ url_for('update_lead_status', id=l['id'], status='Lost') }}" class="btn" style="padding: 4px 8px; font-size: 11px; background: #e31e24;">❌ Lost</a>
+                                {% elif l['status'] == 'Won' %}
+                                    <a href="{{ url_for('convert_lead_to_tender', id=l['id']) }}" class="btn" style="padding: 4px 8px; font-size: 11px; background: #e31e24; color: white;" onclick="return confirm('Convert this lead to Tender?');">🚀 To Tender</a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" style="text-align: center; padding: 20px;">No leads added yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

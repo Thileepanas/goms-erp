@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Employee Profile{% endblock %}
+{% block page_title %}Employee Profile - {{ emp['name'] }}{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 20px;">
+    
+    <!-- இடது பக்கம்: ஊழியர் விவரங்கள் -->
+    <div class="card" style="border-top: 4px solid var(--primary-blue);">
+        <h3>👤 Personal Details</h3>
+        <div style="margin-top: 15px; font-size: 14px; line-height: 2;">
+            <p><strong>Name:</strong> {{ emp['name'] }}</p>
+            <p><strong>Emp Code:</strong> {{ emp['emp_code'] }}</p>
+            <p><strong>Designation:</strong> {{ emp['designation'] or '-' }}</p>
+            <p><strong>Department:</strong> {{ emp['department'] or '-' }}</p>
+            <p><strong>Join Date:</strong> {{ emp['join_date'] | dateformat if emp['join_date'] else '-' }}</p>
+            <p><strong>Phone:</strong> {{ emp['phone'] or '-' }}</p>
+            <p><strong>Email:</strong> {{ emp['email'] or '-' }}</p>
+            <p><strong>Basic Salary:</strong> ₹ {{ emp['basic_salary'] | inr }}</p>
+            <p>
+                <strong>Status:</strong> 
+                {% if emp['is_active'] == 1 %}
+                    <span style="color: #176b38; font-weight: bold;">Active ✅</span>
+                {% else %}
+                    <span style="color: #e31e24; font-weight: bold;">Inactive ❌</span>
+                {% endif %}
+            </p>
+        </div>
+        <a href="{{ url_for('employees') }}" class="btn" style="background: #666; width: 100%; margin-top: 15px;">← Back to Directory</a>
+    </div>
+
+    <!-- வலது பக்கம்: ஆவணங்கள் -->
+    <div class="card">
+        <h3>📁 Documents & Certificates</h3>
+        
+        <!-- அப்லோட் ஃபார்ம் -->
+        <form action="{{ url_for('upload_employee_doc', id=emp['id']) }}" method="POST" enctype="multipart/form-data" style="background: #f9fbfc; padding: 15px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 20px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="grid-2" style="align-items: end;">
+                <div>
+                    <label>Document Name *</label>
+                    <input type="text" name="doc_name" required placeholder="e.g. Aadhar Card, PAN Card" style="padding: 8px; width: 100%;">
+                </div>
+                <div>
+                    <label>Select File *</label>
+                    <input type="file" name="file" required style="padding: 8px; width: 100%;">
+                </div>
+            </div>
+            <button type="submit" class="btn btn-green" style="margin-top: 10px; width: 100%;">Upload Document</button>
+        </form>
+
+        <!-- ஆவணங்கள் லிஸ்ட் -->
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Document Name</th>
+                        <th>Upload Date</th>
+                        <th style="text-align: center;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in docs %}
+                    <tr>
+                        <td><strong>{{ d['doc_name'] }}</strong></td>
+                        <td>{{ d['upload_date'] | dateformat }}</td>
+                        <td style="text-align: center;">
+                            <div style="display: flex; gap: 5px; justify-content: center;">
+                                <a href="{{ url_for('static', filename='uploads/employees/' + d['file_name']) }}" target="_blank" class="btn" style="padding: 4px 8px; font-size: 12px; background: #0a2240;">View</a>
+                                <a href="{{ url_for('delete_employee_doc', doc_id=d['id']) }}" class="btn btn-red" style="padding: 4px 8px; font-size: 12px;" onclick="return confirm('Delete this document?');">Delete</a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="3" style="text-align: center; padding: 20px;">No documents uploaded yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

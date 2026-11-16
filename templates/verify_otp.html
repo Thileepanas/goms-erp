@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Verify OTP - GOMS ERP</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <style>
+        body { display: flex; justify-content: center; align-items: center; height: 100vh; background: #f4f7f9; }
+        .otp-card { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; width: 100%; max-width: 400px; border-top: 5px solid #0a2240; }
+        .otp-card h2 { color: #0a2240; margin-bottom: 10px; }
+        .otp-card p { color: #666; margin-bottom: 25px; font-size: 14px; }
+        .otp-input { width: 100%; padding: 15px; font-size: 24px; text-align: center; letter-spacing: 5px; border: 2px solid #ccc; border-radius: 8px; margin-bottom: 20px; font-weight: bold; outline: none; }
+        .otp-input:focus { border-color: #0a2240; }
+        .btn-verify { width: 100%; padding: 15px; background: #176b38; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .btn-verify:hover { background: #11522a; }
+    </style>
+</head>
+<body>
+    <div class="otp-card">
+        <h2>🔐 Two-Factor Auth</h2>
+        <p>"Please enter the 6-digit OTP sent to your email address to verify your Admin/GM account."</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <div class="alert {{ category }}" style="color: red; margin-bottom: 15px;">{{ message }}</div>
+            {% endfor %}
+        {% endwith %}
+
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="text" name="otp" class="otp-input" maxlength="6" placeholder="------" required autofocus>
+            <button type="submit" class="btn-verify">Verify & Login</button>
+        </form>
+        <p style="margin-top: 20px;"><a href="{{ url_for('login') }}" style="color: #666; text-decoration: none; font-size: 13px;">← Back to Login</a></p>
+    </div>
+</body>
+</html>

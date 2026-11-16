@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Material Indent - IND-{{ indent['id'] }}</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f9; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: #fff; padding: 30px; border-top: 5px solid #0a2240; border-bottom: 5px solid #e31e24; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
+        .header h1 { margin: 0; color: #0a2240; font-size: 24px; }
+        .info-grid { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+        th, td { border: 1px solid #333; padding: 8px; text-align: left; font-size: 13px; }
+        th { background: #0a2240; color: white; text-align: center; }
+        .no-print { text-align: right; max-width: 800px; margin: 0 auto 15px auto; }
+        @media print { 
+            body { background: white; padding: 0; } 
+            .container { box-shadow: none; padding: 0; max-width: 100%; } 
+            .no-print { display: none; } 
+        }
+    </style>
+</head>
+<body>
+
+    <div class="no-print">
+        <button onclick="window.print()" style="padding: 10px 20px; background: #176b38; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px;">🖨️ Print Indent</button>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1>GOMS ELECTRICALS PVT LTD</h1>
+            <p style="margin: 5px 0;">Material Indent / Requisition Slip</p>
+        </div>
+
+        <div class="info-grid">
+            <div>
+                <p><strong>Indent No:</strong> IND-{{ indent['id'] }}</p>
+                <p><strong>Date:</strong> {{ indent['indent_date'] | dateformat }}</p>
+            </div>
+            <div style="text-align: right;">
+                <p><strong>Project:</strong> {{ indent['project_name'] }}</p>
+                <p><strong>Requested By:</strong> {{ indent['requested_by'] or '-' }}</p>
+            </div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 10%;">S.No</th>
+                    <th style="width: 50%;">Material Description</th>
+                    <th style="width: 15%;">Qty</th>
+                    <th style="width: 25%;">Remarks</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td style="text-align: center;">{{ loop.index }}</td>
+                    <td>{{ item['material_name'] }}</td>
+                    <td style="text-align: center;">{{ item['quantity'] }}</td>
+                    <td>{{ item['remarks'] or '-' }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" style="text-align: center;">No items.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div style="display: flex; justify-content: space-between; margin-top: 60px;">
+            <div style="text-align: center; width: 40%;">
+                <div style="border-top: 1px solid #000; padding-top: 10px;">Requested By</div>
+            </div>
+            <div style="text-align: center; width: 40%;">
+                <div style="border-top: 1px solid #000; padding-top: 10px;">Authorised Signatory</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

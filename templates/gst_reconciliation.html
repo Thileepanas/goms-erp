@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}GST Reconciliation{% endblock %}
+{% block page_title %}GSTR-2B Reconciliation{% endblock %}
+
+{% block content %}
+<style>
+    .status-badge { padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; display: inline-block; }
+    .status-matched { background: #e0f5e8; color: #176b38; }
+    .status-mismatch { background: #fff0f0; color: #b42318; }
+    .status-missing { background: #fff3cd; color: #856404; }
+</style>
+
+<div class="card" style="background: #f9fbfc; border-top: 4px solid var(--primary-blue);">
+    <h3>Upload GSTR-2B Excel File</h3>
+    <p style="color: #666; font-size: 14px; margin-bottom: 15px;">
+        Upload your GSTR-2B Excel file downloaded from the GST portal. Make sure the file has columns like <strong>Invoice Number</strong>, <strong>Trade/Legal Name</strong>, and <strong>Total</strong>.
+    </p>
+    
+    <form method="POST" enctype="multipart/form-data" style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+        <input type="file" name="file" accept=".xlsx, .xls, .csv" required style="padding: 10px; border: 1px solid #ccc; border-radius: 6px; background: white; width: 100%; max-width: 350px;">
+        <button type="submit" class="btn" style="background: #0d47a1;">📁 Upload File</button>
+        <a href="{{ url_for('run_reconciliation') }}" class="btn" style="background: #ff9800;" onclick="return confirm('Run auto-reconciliation matching with your purchase bills?');">⚙️ Run Auto-Reconcile</a>
+        
+        <!-- NEW: Clear Data Button -->
+        <a href="{{ url_for('clear_gstr2b') }}" class="btn" style="background: #e31e24; margin-left: auto;" onclick="return confirm('Are you sure you want to clear all uploaded GSTR-2B data?');">🗑️ Clear Data</a>
+    </form>
+</div>
+
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h3 style="margin: 0; border: none; padding: 0;">Reconciliation Results</h3>
+        <span style="font-size: 13px; color: #666; font-weight: bold;">Total Records: {{ uploaded_data | length }}</span>
+    </div>
+    
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Invoice No</th>
+                    <th>Supplier Name</th>
+                    <th style="text-align: right;">2B Total (₹)</th>
+                    <th style="text-align: center;">Match Status</th>
+                    <th class="no-print" style="text-align: center;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in uploaded_data %}
+                <tr>
+                    <td><strong>{{ row['invoice_number'] }}</strong></td>
+                    <td>{{ row['supplier_name'] }}</td>
+                    <td style="text-align: right; font-weight: bold;">{{ (row['total_value'] or 0) | inr }}</td>
+                    <td style="text-align: center;">
+                        {% if row['match_status'] == 'Matched' %}
+                            <span class="status-badge status-matched">✅ Matched</span>
+                        {% elif row['match_status'] == 'Amount Mismatch' %}
+                            <span class="status-badge status-mismatch">⚠️ Amount Mismatch</span>
+                        {% elif row['match_status'] == 'Missing in Purchase' %}
+                            <span class="status-badge status-missing">❌ Missing</span>
+                        {% else %}
+                            <span class="status-badge" style="background: #eee; color: #333;">{{ row['match_status'] }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="no-print" style="text-align: center;">
+                        <a href="{{ url_for('purchases') }}" class="btn" style="padding: 4px 8px; font-size: 12px; background: #0a2240;">View Purchases</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" style="text-align: center; padding: 30px; color: #999;">No GSTR-2B data uploaded yet. Please upload a file above.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

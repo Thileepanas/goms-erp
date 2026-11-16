@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Daily Report{% endblock %}
+{% block page_title %}Daily Activity Report{% endblock %}
+
+{% block content %}
+<div class="card no-print" style="background: #f9fbfc;">
+    <form method="GET" style="display: flex; gap: 15px; align-items: center;">
+        <label style="margin: 0; font-weight: bold;">Select Date:</label>
+        <input type="date" name="date" value="{{ selected_date }}" onchange="this.form.submit()" style="padding: 10px; border-radius: 6px; border: 1px solid #ccc; font-size: 15px; font-weight: bold;">
+        <button type="button" onclick="window.print()" class="btn" style="background: #0a2240; padding: 10px 20px; margin-left: auto;">🖨️ Print Daily Report</button>
+    </form>
+</div>
+
+<div class="print-section">
+    <div style="text-align: center; margin-bottom: 20px;">
+        <h2 style="margin: 0; color: #0a2240;">Daily Activity Report</h2>
+        <p style="margin: 5px 0; font-size: 14px; font-weight: bold;">Date: {{ selected_date | dateformat }}</p>
+    </div>
+
+    <div class="grid-3" style="margin-bottom: 20px;">
+        <div class="card" style="text-align: center; padding: 15px; border-top: 4px solid #176b38; margin: 0;">
+            <h4 style="margin: 0; color: #666;">Total Inflow</h4>
+            <h2 style="margin: 5px 0 0 0; color: #176b38;">₹ {{ d.income | inr }}</h2>
+        </div>
+        <div class="card" style="text-align: center; padding: 15px; border-top: 4px solid #e31e24; margin: 0;">
+            <h4 style="margin: 0; color: #666;">Total Outflow</h4>
+            <h2 style="margin: 5px 0 0 0; color: #e31e24;">₹ {{ d.expense | inr }}</h2>
+        </div>
+        <div class="card" style="text-align: center; padding: 15px; border-top: 4px solid #0d47a1; margin: 0;">
+            <h4 style="margin: 0; color: #666;">Manpower Present</h4>
+            <h2 style="margin: 5px 0 0 0; color: #0d47a1;">{{ d.labour_present }} Nos</h2>
+        </div>
+    </div>
+
+    <div class="grid-2">
+        <!-- Left Side: Financials -->
+        <div class="card">
+            <h3 style="border-bottom-color: #0d47a1; color: #0d47a1;">Financial Transactions</h3>
+            <table style="width: 100%; font-size: 13px;">
+                <thead>
+                    <tr style="background: #f1f5f9;">
+                        <th>Description</th>
+                        <th style="text-align: right;">In (₹)</th>
+                        <th style="text-align: right;">Out (₹)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in d.transactions %}
+                    <tr>
+                        <td>
+                            <strong>{{ t['description'] }}</strong><br>
+                            <small style="color: #666;">{{ t['paid_name'] or '-' }}</small>
+                        </td>
+                        <td style="text-align: right; color: #176b38; font-weight: bold;">
+                            {% if t['transaction_type'] in ('Income', 'Debit Note') %}{{ t['amount'] | inr }}{% else %}-{% endif %}
+                        </td>
+                        <td style="text-align: right; color: #e31e24; font-weight: bold;">
+                            {% if t['transaction_type'] in ('Expense', 'Credit Note') %}{{ t['amount'] | inr }}{% else %}-{% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="3" style="text-align: center;">No transactions today.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Right Side: Operations & Store -->
+        <div>
+            <div class="card" style="margin-bottom: 20px;">
+                <h3 style="border-bottom-color: #176b38; color: #176b38;">Site Operations</h3>
+                <ul style="list-style: none; padding: 0; margin: 0; font-size: 13px;">
+                    {% for w in d.work_progress %}
+                    <li style="padding: 8px 0; border-bottom: 1px dashed #eee;">
+                        <strong>{{ w['material_name'] }}</strong> - 
+                        Sup: <span style="color:#176b38;">{{ w['qty_supply'] }}</span>, Ere: <span style="color:#0d47a1;">{{ w['qty_erection'] }}</span>
+                    </li>
+                    {% else %}
+                    <li style="text-align: center; padding: 10px;">No work progress updated today.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3 style="border-bottom-color: #ff9800; color: #ff9800;">Store & Purchases</h3>
+                <ul style="list-style: none; padding: 0; margin: 0; font-size: 13px;">
+                    {% for m in d.material_issues %}
+                    <li style="padding: 8px 0; border-bottom: 1px dashed #eee;">
+                        Issued: <strong>{{ m['project_name'] }}</strong> (Issued To: {{ m['issued_to'] or 'N/A' }})
+                    </li>
+                    {% endfor %}
+                    {% for p in d.new_purchases %}
+                    <li style="padding: 8px 0; border-bottom: 1px dashed #eee;">
+                        Purchase Bill: <strong>{{ p['invoice_number'] }}</strong> ({{ p['supplier_name'] }})
+                    </li>
+                    {% endfor %}
+                    {% if not d.material_issues and not d.new_purchases %}
+                    <li style="text-align: center; padding: 10px;">No store activities today.</li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

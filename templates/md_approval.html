@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}MD Approval{% endblock %}
+{% block page_title %}MD Payment Approval Workflow{% endblock %}
+
+{% block content %}
+<style>
+    .deduction-box { background: #f9fbfc; padding: 12px; border-radius: 6px; border: 1px solid #ddd; font-size: 13px; width: 280px; margin: 0 auto; }
+    .net-payable-text { font-size: 15px; font-weight: 800; color: #176b38; }
+    .tds-text { color: #e31e24; font-weight: 600; }
+</style>
+
+<div class="card" style="border-top: 4px solid #ff9800;">
+    <h3>Pending Approvals (Verified by Purchase Team)</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Invoice & Vendor</th>
+                    <th>Date</th>
+                    <th>Gross Amount (₹)</th>
+                    <th style="text-align: center; width: 300px;">Calculated Deductions</th>
+                    <th class="no-print" style="text-align: center;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in pending %}
+                <tr>
+                    <td>
+                        <strong>{{ p['invoice_number'] }}</strong><br>
+                        <span style="font-size: 12px; color: #666;">{{ p['supplier_name'] }}</span>
+                    </td>
+                    <td>{{ p['invoice_date'] | dateformat }}</td>
+                    <td style="font-weight: bold; color: #0d47a1; font-size: 15px;">
+                        ₹ {{ (p['total_amount'] or 0) | inr }}
+                    </td>
+                    <td>
+                        <!-- Read-only Deductions -->
+                        <div class="deduction-box">
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Gross Amount:</span> <span>₹ {{ (p['total_amount'] or 0) | inr }}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-top: 5px;" class="tds-text">
+                                <span>TDS ({{ p['tds_percent'] }}%):</span> <span>- ₹ {{ ((p['total_amount'] or 0) * (p['tds_percent'] or 0) / 100) | inr }}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-top: 5px;" class="tds-text">
+                                <span>Retention ({{ p['retention_percent'] }}%):</span> <span>- ₹ {{ ((p['total_amount'] or 0) * (p['retention_percent'] or 0) / 100) | inr }}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; border-top: 1px dashed #ccc; padding-top: 8px; margin-top: 8px;">
+                                <span class="net-payable-text">Net Payable:</span>
+                                <span class="net-payable-text">₹ {{ (p['net_payable'] or p['total_amount']) | inr }}</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="no-print" style="text-align: center; vertical-align: middle;">
+                        <form method="POST" action="{{ url_for('md_approve', id=p['id']) }}" style="margin: 0;">
+                            <button type="submit" class="btn" style="background: #176b38; padding: 10px 20px; font-size: 14px; width: 100%; font-weight: bold;">✅ Approve Bill</button>
+                        </form>
+                        <a href="{{ url_for('print_po', id=p['po_number'] if p['po_number'] else 0) }}" target="_blank" class="btn" style="background: #0a2240; padding: 6px 12px; font-size: 12px; margin-top: 8px; display: block;">🖨️ View Bill</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" style="text-align: center; padding: 20px;">No pending approvals.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card" style="border-top: 4px solid #176b38;">
+    <h3>Approved Bills (Ready for Payment)</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Invoice No</th>
+                    <th>Vendor</th>
+                    <th>Gross Amt (₹)</th>
+                    <th>TDS Deducted</th>
+                    <th>Retention</th>
+                    <th>Net Payable (₹)</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in approved %}
+                <tr>
+                    <td><strong>{{ p['invoice_number'] }}</strong></td>
+                    <td>{{ p['supplier_name'] }}</td>
+                    <td style="color: #666;">{{ (p['total_amount'] or 0) | inr }}</td>
+                    <td style="color: #e31e24;">- {{ ((p['total_amount'] or 0) * (p['tds_percent'] or 0) / 100) | inr }} ({{ p['tds_percent'] }}%)</td>
+                    <td style="color: #e31e24;">- {{ ((p['total_amount'] or 0) * (p['retention_percent'] or 0) / 100) | inr }} ({{ p['retention_percent'] }}%)</td>
+                    <td style="font-weight: bold; color: #176b38; font-size: 14px;">{{ (p['net_payable'] or p['total_amount']) | inr }}</td>
+                    <td><span style="color: green; font-weight: bold;">Approved ✅</span></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" style="text-align: center; padding: 20px;">No approved bills yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

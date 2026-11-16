@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Credit Note{% endblock %}
+{% block page_title %}Credit Note (Sales Return){% endblock %}
+
+{% block content %}
+<div class="card no-print" style="background: #f9fbfc; border-left: 4px solid var(--primary-blue);">
+    <form method="GET" style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+        <label style="margin: 0; white-space: nowrap; font-weight: bold;">Select Project:</label>
+        <select name="project" onchange="this.form.submit()" style="padding: 10px; border-radius: 6px; max-width: 300px; width: 100%;">
+            <option value="">-- Choose Project --</option>
+            {% for p in project_list %}<option value="{{ p['project_name'] }}" {% if p['project_name'] == selected_project %}selected{% endif %}>{{ p['project_name'] }}</option>{% endfor %}
+        </select>
+        
+        {% if selected_project %}
+        <label style="margin: 0; white-space: nowrap; font-weight: bold; margin-left: 20px;">Select Bill:</label>
+        <select name="bill_id" onchange="this.form.submit()" style="padding: 10px; border-radius: 6px; max-width: 300px; width: 100%;">
+            <option value="">-- Choose Bill --</option>
+            {% for b in bill_list %}<option value="{{ b['id'] }}" {% if selected_bill and selected_bill['id'] == b['id'] %}selected{% endif %}>{{ b['bill_no'] }} (₹{{ b['total_value'] | inr }})</option>{% endfor %}
+        </select>
+        {% endif %}
+    </form>
+</div>
+
+{% if selected_bill %}
+<div class="card">
+    <h3>Generate Credit Note for Bill: {{ selected_bill['bill_no'] }}</h3>
+    <form method="POST">
+        <input type="hidden" name="project_name" value="{{ selected_project }}">
+        <input type="hidden" name="bill_id" value="{{ selected_bill['id'] }}">
+        <input type="hidden" name="orig_bill_no" value="{{ selected_bill['bill_no'] }}">
+        
+        <div class="grid-2" style="margin-bottom: 15px;">
+            <div>
+                <label>CN Number *</label>
+                <input type="text" name="cn_no" required placeholder="e.g. CN-001" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+            </div>
+            <div>
+                <label>CN Date *</label>
+                <input type="date" name="cn_date" value="{{ today }}" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table id="itemsTable" style="margin: 0; width: 100%;">
+                <thead>
+                    <tr style="background: #f1f5f9;">
+                        <th>Description</th>
+                        <th>Qty</th>
+                        <th>Rate (₹)</th>
+                        <th>GST %</th>
+                        <th style="text-align: right;">Total (₹)</th>
+                    </tr>
+                </thead>
+                <tbody id="itemsBody">
+                    {% for item in bill_items %}
+                    <tr>
+                        <td><input type="text" name="description[]" value="{{ item['description'] }}" readonly style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; background:#e9ecef;"></td>
+                        <td><input type="number" name="quantity[]" value="{{ item['quantity'] }}" step="any" class="qty" required style="width: 80px; padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></td>
+                        <td><input type="number" name="rate[]" value="{{ item['rate'] }}" step="any" class="rate" required style="width: 80px; padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></td>
+                        <td><input type="number" name="gst_rate[]" value="{{ item['gst_rate'] }}" step="any" class="gst" required style="width: 60px; padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></td>
+                        <td class="rowTotal" style="text-align: right; font-weight: bold;">0.00</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr style="background: #f9fbfc;">
+                        <td colspan="4" style="text-align: right; font-weight: bold;">Total CN Value:</td>
+                        <td style="text-align: right; font-weight: bold; font-size: 16px;" id="grandTotal">0.00</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        <button type="submit" class="btn" style="width: 100%; margin-top: 15px; background: #e31e24; padding: 12px;">Generate Credit Note & Reverse Work</button>
+    </form>
+</div>
+{% endif %}
+
+<div class="card">
+    <h3>Credit Note History</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr style="background: #f1f5f9;">
+                    <th>CN No</th>
+                    <th>Date</th>
+                    <th>Project</th>
+                    <th style="text-align: right;">Amount (₹)</th>
+                    <th class="no-print" style="text-align: center;">Action</th> <!-- NEW COLUMN -->
+                </tr>
+            </thead>
+            <tbody>
+                {% for cn in cn_history %}
+                <tr>
+                    <td><strong>{{ cn.cn_no }}</strong></td>
+                    <td>{{ cn.cn_date | dateformat }}</td>
+                    <td>{{ cn.project_name }}</td>
+                    <td style="text-align: right; font-weight: bold; color: #e31e24;">{{ cn.total_value | inr }}</td>
+                    <td class="no-print" style="text-align: center;">
+                        <a href="{{ url_for('delete_credit_note', id=cn.id) }}" class="btn" style="padding: 4px 8px; font-size: 12px; background: #e31e24;" onclick="return confirm('Are you sure you want to delete this Credit Note? This will restore the billed quantity in Work Progress.');">❌ Delete</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" style="text-align: center;">No Credit Notes yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function calc() {
+        let grandTotal = 0;
+        document.querySelectorAll("#itemsBody tr").forEach(row => {
+            const qty = parseFloat(row.querySelector(".qty").value) || 0;
+            const rate = parseFloat(row.querySelector(".rate").value) || 0;
+            const gst = parseFloat(row.querySelector(".gst").value) || 0;
+            const total = (qty * rate) * (1 + gst/100);
+            row.querySelector(".rowTotal").textContent = total.toFixed(2);
+            grandTotal += total;
+        });
+        document.getElementById("grandTotal").textContent = grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    document.querySelectorAll("input").forEach(i => i.addEventListener("input", calc));
+    document.addEventListener("DOMContentLoaded", calc);
+</script>
+{% endblock %}

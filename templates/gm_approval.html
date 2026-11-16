@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}GM Approval{% endblock %}
+{% block page_title %}GM Purchase Order Approval{% endblock %}
+
+{% block content %}
+<div class="card" style="border-top: 4px solid #ff9800;">
+    <h3>Pending PO Approvals</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>PO Date</th>
+                    <th>Project</th>
+                    <th>Vendor</th>
+                    <th>Total Amount (₹)</th>
+                    <th class="no-print">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in pending %}
+                <tr>
+                    <td>{{ p['po_date'] | dateformat }}</td>
+                    <td><strong>{{ p['project_name'] }}</strong></td>
+                    <td>{{ p['vendor_name'] }}</td>
+                    <td style="font-weight: bold; color: #0d47a1;">₹ {{ p['total'] | inr }}</td>
+                    <td class="no-print">
+                        <div style="display: flex; gap: 5px;">
+                            <!-- This is a status update, so keep custom confirm -->
+                            <a href="{{ url_for('gm_approve', id=p['id']) }}" class="btn" style="background: #176b38; padding: 6px 12px; font-size: 12px;" onclick="return confirm('Approve this PO for Purchase?');">✅ Approve</a>
+                            <a href="{{ url_for('print_po', id=p['id']) }}" target="_blank" class="btn" style="background: #0a2240; padding: 6px 12px; font-size: 12px;">🖨️ View PO</a>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" style="text-align: center; padding: 20px;">No pending PO approvals.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card" style="border-top: 4px solid #176b38;">
+    <h3>Approved Purchase Orders</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>PO Date</th>
+                    <th>Project</th>
+                    <th>Vendor</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in approved %}
+                <tr>
+                    <td>{{ p['po_date'] | dateformat }}</td>
+                    <td>{{ p['project_name'] }}</td>
+                    <td>{{ p['vendor_name'] }}</td>
+                    <td><span style="color: green; font-weight: bold;">Approved ✅</span></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" style="text-align: center; padding: 20px;">No approved POs yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

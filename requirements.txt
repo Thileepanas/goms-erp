@@ -3,3 +3,6 @@ pandas
 openpyxl
 gunicorn
 requests
+Flask-WTF
+Flask-Limiter
+Werkzeug

@@ -323,36 +323,24 @@ def send_otp_email(receiver_email, otp_code):
 def login():
     if session.get("username"): return redirect(url_for("dashboard"))
     error = None
+    
     if request.method == "POST":
-        username, password = request.form.get("username", "").strip(), request.form.get("password", "")
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        
         conn = get_db()
         user = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
         conn.close()
         
         if user and verify_password(password, user["salt"], user["password_hash"]):
-            # Admin அல்லது GM-க்கு மட்டும் OTP
-            if user["role"] in ["Admin", "GM"]:
-                otp = str(random.randint(100000, 999999))
-                session['temp_user'] = user["username"]
-                session['temp_role'] = user["role"]
-                session['current_otp'] = otp
-                
-                # டெஸ்ட் பண்றதுக்கு Terminal-ல OTP-ஐ அச்சிடுவோம்
-                print(f"\n🔐 OTP for {user['username']}: {otp}\n")
-                
-                # நிஜமா Email அனுப்பணும்னா இதை Uncomment பண்ணுங்க
-                # send_otp_email("admin@example.com", otp) 
-                
-                return redirect(url_for("verify_otp"))
-            else:
-                # மத்தவங்களுக்கு நேரடி லாகின்
-                session.permanent = True
-                session["username"] = user["username"]
-                session["role"] = user["role"]
-                log_activity("Login", "User logged in successfully")
-                return redirect(url_for("dashboard"))
-                
+            session.permanent = True
+            session["username"] = user["username"]
+            session["role"] = user["role"]
+            log_activity("Login", "User logged in successfully")
+            return redirect(url_for("dashboard"))
+            
         error = "Invalid credentials."
+        
     return render_template("login.html", error=error)
 
 @app.route("/verify_otp", methods=["GET", "POST"])

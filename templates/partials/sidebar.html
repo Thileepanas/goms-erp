@@ -1,10 +1,12 @@
-{% set user_role = session.get('role', 'Admin') %}
-{% set is_admin = user_role == 'Admin' %}
+{% set user_role = session.get('role', 'MD') %}
+{% set is_admin = user_role in ['Admin', 'MD'] %}
 {% set is_gm = user_role in ['GM', 'Manager'] %}
 {% set is_bd = user_role == 'BD Executive' %}
 {% set is_accountant = user_role == 'Accountant' %}
 {% set is_store = user_role == 'Store Keeper' %}
 {% set is_site = user_role == 'Site Supervisor' %}
+<!-- அக்கவுண்ட்ஸ் அனுமதி MD, GM, மற்றும் Accountant-க்கு மட்டும் -->
+{% set can_view_accounts = user_role in ['MD', 'GM', 'Accountant'] %}
 
 <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
@@ -12,7 +14,7 @@
     </div>
     <ul class="sidebar-menu">
 
-        <!-- 1. DASHBOARD (எல்லாருக்கும்) -->
+        <!-- 1. DASHBOARD -->
         <li>
             <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">
                 <span style="font-size: 18px;">🏠</span> <span class="menu-label" style="margin-left: 10px;">Dashboard</span>
@@ -73,7 +75,7 @@
                 <li><a href="{{ url_for('poq') }}">BOQ (Estimate)</a></li>
                 {% endif %}
                 <li><a href="{{ url_for('work_progress') }}">Work Progress</a></li>
-                {% if is_admin or is_gm or is_accountant %}
+                {% if can_view_accounts %}
                 <li><a href="{{ url_for('accounts') }}">Project P&L</a></li>
                 <li><a href="{{ url_for('subcon') }}">Subcon Billing</a></li>
                 {% endif %}
@@ -118,7 +120,7 @@
         </li>
         {% endif %}
 
-        <!-- 8. HR & LABOUR (Payroll Added Here) -->
+        <!-- 8. HR & LABOUR -->
         {% if is_admin or is_gm or is_site or is_accountant %}
         <li class="dropdown">
             <a href="#" onclick="return false;" class="{% if request.endpoint in ['employees', 'labour', 'attendance', 'attendance_report', 'staff_advances', 'payroll'] %}active{% endif %}">
@@ -131,7 +133,6 @@
                 <li><a href="{{ url_for('staff_advances') }}">💰 Staff Advances / Expenses</a></li>
                 {% endif %}
                 
-                <!-- Payroll Menu -->
                 {% if is_admin or is_gm or is_accountant %}
                 <li><a href="{{ url_for('payroll') }}">💵 Payroll (Salary)</a></li>
                 {% endif %}
@@ -145,8 +146,8 @@
         </li>
         {% endif %}
 
-                <!-- 8. ACCOUNTS / FINANCE (Core Bookkeeping) -->
-        {% if is_admin or is_gm or is_accountant %}
+        <!-- 9. ACCOUNTS / FINANCE (MD-க்கு இங்கே அனுமதி உண்டு) -->
+        {% if can_view_accounts %}
         <li class="dropdown">
             <a href="#" onclick="return false;" class="{% if request.endpoint in ['accounts_entry', 'client_ledger', 'vendor_ledger', 'accounts', 'credit_notes', 'general_expenses', 'company_pnl'] %}active{% endif %}">
                 <span style="font-size: 18px;">💰</span> <span class="menu-label" style="margin-left: 10px;">Accounts ▾</span>
@@ -164,8 +165,8 @@
         </li>
         {% endif %}
 
-        <!-- 9. GST & TAX (Compliance) -->
-        {% if is_admin or is_gm or is_accountant %}
+        <!-- 10. GST & TAX -->
+        {% if can_view_accounts %}
         <li class="dropdown">
             <a href="#" onclick="return false;" class="{% if request.endpoint in ['gst_reconciliation', 'gstr1', 'gst_reports'] %}active{% endif %}">
                 <span style="font-size: 18px;">🧾</span> <span class="menu-label" style="margin-left: 10px;">GST & Tax ▾</span>
@@ -178,8 +179,8 @@
         </li>
         {% endif %}
 
-        <!-- 10. REPORTS -->
-        {% if is_admin or is_gm or is_accountant %}
+        <!-- 11. REPORTS -->
+        {% if can_view_accounts %}
         <li class="dropdown">
             <a href="#" onclick="return false;" class="{% if request.endpoint in ['reports', 'aging_report', 'dept_performance', 'daily_report'] %}active{% endif %}">
                 <span style="font-size: 18px;">📊</span> <span class="menu-label" style="margin-left: 10px;">Reports ▾</span>
@@ -192,7 +193,7 @@
         </li>
         {% endif %}
 
-        <!-- 11. SYSTEM -->
+        <!-- 12. SYSTEM -->
         <li class="dropdown">
             <a href="#" onclick="return false;" class="{% if request.endpoint in ['users', 'delete_user', 'edit_user_role', 'change_password', 'backup'] %}active{% endif %}">
                 <span style="font-size: 18px;">⚙️</span> <span class="menu-label" style="margin-left: 10px;">System ▾</span>

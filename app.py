@@ -315,7 +315,7 @@ def restrict_access():
 # EMAIL OTP SENDER FUNCTION
 # ==========================================
 def send_otp_email(receiver_email, otp_code):
-    sender_email = "your_email@gmail.com" # உங்க Gmail ID
+    sender_email = "thileepanas@gmail.com" # உங்க Gmail ID
     app_password = "xxxx xxxx xxxx xxxx"   # Gmail App Password
 
     msg = EmailMessage()
@@ -331,33 +331,36 @@ def send_otp_email(receiver_email, otp_code):
     except Exception as e:
         print(f"Email Error: {e}")
 
+# ==========================================
+# LOGIN ROUTE (OTP Screen Display)
+# ==========================================
 @app.route("/", methods=["GET", "POST"])
 def login():
     if session.get("username"): return redirect(url_for("dashboard"))
     error = None
+    
     if request.method == "POST":
-        username, password = request.form.get("username", "").strip(), request.form.get("password", "")
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        
         conn = get_db()
         user = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
         conn.close()
         
         if user and verify_password(password, user["salt"], user["password_hash"]):
-            # Admin அல்லது GM-க்கு மட்டும் OTP
-            if user["role"] in ["MD", "GM"]:
+            # Admin மற்றும் GM-க்கு மட்டும் OTP
+            if user["role"] in ["Admin", "MD", "GM"]:
                 otp = str(random.randint(100000, 999999))
                 session['temp_user'] = user["username"]
                 session['temp_role'] = user["role"]
                 session['current_otp'] = otp
                 
-                # டெஸ்ட் பண்றதுக்கு Terminal-ல OTP-ஐ அச்சிடுவோம்
-                print(f"\n🔐 OTP for {user['username']}: {otp}\n")
+                flash(f"🔐 Your Login OTP is: {otp} (For Testing)", "warning")
                 
-                # நிஜமா Email அனுப்பணும்னா இதை Uncomment பண்ணுங்க
-                # send_otp_email("admin@example.com", otp) 
+                # send_otp_email("thileepanas@gmail.com", otp)
                 
                 return redirect(url_for("verify_otp"))
             else:
-                # மத்தவங்களுக்கு நேரடி லாகின்
                 session.permanent = True
                 session["username"] = user["username"]
                 session["role"] = user["role"]
@@ -365,24 +368,31 @@ def login():
                 return redirect(url_for("dashboard"))
                 
         error = "Invalid credentials."
+        
     return render_template("login.html", error=error)
 
+
+# ==========================================
+# VERIFY OTP ROUTE
+# ==========================================
 @app.route("/verify_otp", methods=["GET", "POST"])
 def verify_otp():
-    if not session.get('temp_user'): return redirect(url_for('login'))
+    if not session.get('temp_user'): 
+        return redirect(url_for('login'))
     
     if request.method == "POST":
-        entered_otp = request.form.get("otp")
+        entered_otp = request.form.get("otp", "").strip()
+        
         if entered_otp == session.get('current_otp'):
-            # OTP கரெக்ட், லாகின் செய்றோம்
             session.permanent = True
             session["username"] = session.pop('temp_user')
             session["role"] = session.pop('temp_role')
-            session.pop('current_otp', None)
+            session.pop('current_otp', None) 
+            
             log_activity("Login", "User logged in with OTP")
             return redirect(url_for("dashboard"))
         else:
-            flash("Invalid OTP! Try again.", "error")
+            flash("Invalid OTP! Please try again.", "error")
             
     return render_template("verify_otp.html")
 

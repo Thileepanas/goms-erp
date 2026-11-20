@@ -37,12 +37,12 @@ csrf = CSRFProtect(app)
 @app.context_processor
 def inject_permissions():
     role = session.get('role', 'Admin')
-    return dict(is_admin_or_gm = role in ['Admin', 'GM'])
+    return dict(is_admin_or_gm = role in ['MD', 'Admin', 'GM'])
 
 if not os.environ.get("FLASK_SECRET_KEY"):
     print("WARNING: Using default Flask secret key. Set FLASK_SECRET_KEY before deploying!")
 
-app.permanent_session_lifetime = timedelta(minutes=30)
+app.permanent_session_lifetime = timedelta(minutes=15)
 
 @app.after_request
 def add_header(response):
@@ -62,15 +62,17 @@ def dateformat(value, format='%d/%m/%Y'):
 
 @app.template_filter('inr')
 def format_inr(number):
-    if number is None: return "0.00"
+    if number is None: return "0"
     try: number = float(number)
-    except: return "0.00"
+    except: return "0"
+    
     is_negative = False
     if number < 0:
         is_negative = True
         number = abs(number)
-    s = f"{number:.2f}"
-    integer_part, decimal_part = s.split(".")
+        
+    integer_part = str(round(number))
+    
     if len(integer_part) > 3:
         last_three = integer_part[-3:]
         remaining = integer_part[:-3]
@@ -80,8 +82,11 @@ def format_inr(number):
             remaining = remaining[:-2]
         if remaining: groups.insert(0, remaining)
         formatted_integer = ",".join(groups) + "," + last_three
-    else: formatted_integer = integer_part
-    result = formatted_integer + "." + decimal_part
+    else: 
+        formatted_integer = integer_part
+    
+    result = formatted_integer
+    
     if is_negative: result = "-" + result
     return result
 
@@ -182,6 +187,7 @@ def init_db():
             cursor = conn.execute(f"PRAGMA table_info({table})")
             if column not in [info[1] for info in cursor.fetchall()]:
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
+                conn.execute("UPDATE users SET role='MD' WHERE role='Admin'")
                 conn.commit()
         except: pass
 
@@ -196,6 +202,7 @@ def init_db():
     add_column("poq", "unit", "TEXT")
     add_column("poq", "rate", "REAL")
     add_column("poq", "amount", "REAL")
+    add_column("poq", "actual_quantity", "REAL DEFAULT 0")
     add_column("po_items", "unit", "TEXT")
     add_column("po_items", "gst_rate", "REAL DEFAULT 18")
     add_column("work_progress", "is_billed", "INTEGER DEFAULT 0")
@@ -217,6 +224,8 @@ def init_db():
     add_column("accounts", "bill_no", "TEXT")
     add_column("tender_items", "supply_rate", "REAL DEFAULT 0")
     add_column("tender_items", "erection_rate", "REAL DEFAULT 0")
+    add_column("tender_items", "company_supply_rate", "REAL DEFAULT 0")
+    add_column("tender_items", "company_erection_rate", "REAL DEFAULT 0")
     add_column("work_progress", "billed_qty_supply", "REAL DEFAULT 0")
     add_column("work_progress", "billed_qty_erection", "REAL DEFAULT 0")
     add_column("parties", "is_blocked", "INTEGER DEFAULT 0")
@@ -243,27 +252,29 @@ def init_db():
 def restrict_access():
     if not session.get("username"): return
     
-    role = session.get("role", "Admin")
-    if role == "Admin": return # Admin-க்கு எல்லா அனுமதியும் உண்டு
-
+    role = session.get("role", "MD") 
     endpoint = request.endpoint
     
-    # === Party Master Restriction (புதுசா சேர்க்கணும்) ===
-    party_routes = ['parties', 'edit_party', 'delete_party', 'toggle_block_party']
-    if endpoint in party_routes and role not in ['GM']:
-        flash("Access Denied: Only Admin and GM can manage Parties.", "error")
-        return redirect(url_for('dashboard'))
-        
-    # 1. Finance & Accounts Access
+    # === 1. Finance & Accounts Access ===
     finance_routes = ['accounts', 'accounts_entry', 'delete_account_entry', 'delete_bill', 
                       'print_bill', 'client_ledger', 'vendor_ledger', 'gst_reconciliation', 
                       'run_reconciliation', 'gstr1', 'credit_notes', 'delete_credit_note', 
-                      'general_expenses', 'company_pnl', 'pay_purchase_bill']
-    if endpoint in finance_routes and role not in ['GM', 'Accountant']:
+                      'general_expenses', 'company_pnl', 'pay_purchase_bill', 'payroll']
+    
+    if endpoint in finance_routes and role not in ['MD', 'GM', 'Accountant']:
         flash("Access Denied: Finance module is restricted.", "error")
         return redirect(url_for('dashboard'))
 
-    # 2. Approvals & Procurement Access
+    if role == "MD":
+        return
+
+    # === 2. Party Master Restriction ===
+    party_routes = ['parties', 'edit_party', 'delete_party', 'toggle_block_party']
+    if endpoint in party_routes and role not in ['MD', 'GM', 'Accountant']:
+        flash("Access Denied: Only MD, GM and Accountants can manage Parties.", "error")
+        return redirect(url_for('dashboard'))
+        
+    # === 3. Approvals & Procurement Access ===
     procurement_routes = ['po', 'edit_po', 'print_po', 'gm_approval', 'gm_approve', 
                           'purchases', 'edit_purchase', 'delete_purchase', 'md_approval', 
                           'md_approve', 'vendor_report', 'quote_comparison', 'approve_quote', 
@@ -272,13 +283,14 @@ def restrict_access():
         flash("Access Denied: Procurement is restricted.", "error")
         return redirect(url_for('dashboard'))
 
-    # 3. System Admin Routes
+    # === 4. System Admin Routes 
     admin_routes = ['users', 'delete_user', 'edit_user_role', 'activity_log', 'backup', 'bulk_import']
-    if endpoint in admin_routes:
-        flash("Access Denied: Admin only.", "error")
+
+    if endpoint in admin_routes and role not in ['GM']: 
+        flash("Access Denied: Only MD can manage System settings.", "error")
         return redirect(url_for('dashboard'))
 
-    # 4. Site Supervisor Restrictions
+    # === 5. Site Supervisor Restrictions ===
     if role == "Site Supervisor":
         blocked_for_site = ['parties', 'edit_party', 'delete_party', 'projects', 'edit_project', 
                             'delete_project', 'poq', 'delete_poq', 'employees', 'staff_advances', 
@@ -288,7 +300,7 @@ def restrict_access():
             flash("Access Denied: You don't have permission for this page.", "error")
             return redirect(url_for('dashboard'))
 
-    # 5. Store Keeper Restrictions (Finance, HR, User Mgmt)
+    # === 6. Store Keeper Restrictions ===
     if role == "Store Keeper":
         blocked_for_store = ['employees', 'staff_advances', 'leave_management', 'labour', 
                              'attendance', 'attendance_report', 'subcon']
@@ -323,24 +335,36 @@ def send_otp_email(receiver_email, otp_code):
 def login():
     if session.get("username"): return redirect(url_for("dashboard"))
     error = None
-    
     if request.method == "POST":
-        username = request.form.get("username", "").strip()
-        password = request.form.get("password", "")
-        
+        username, password = request.form.get("username", "").strip(), request.form.get("password", "")
         conn = get_db()
         user = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
         conn.close()
         
         if user and verify_password(password, user["salt"], user["password_hash"]):
-            session.permanent = True
-            session["username"] = user["username"]
-            session["role"] = user["role"]
-            log_activity("Login", "User logged in successfully")
-            return redirect(url_for("dashboard"))
-            
+            # Admin அல்லது GM-க்கு மட்டும் OTP
+            if user["role"] in ["MD", "GM"]:
+                otp = str(random.randint(100000, 999999))
+                session['temp_user'] = user["username"]
+                session['temp_role'] = user["role"]
+                session['current_otp'] = otp
+                
+                # டெஸ்ட் பண்றதுக்கு Terminal-ல OTP-ஐ அச்சிடுவோம்
+                print(f"\n🔐 OTP for {user['username']}: {otp}\n")
+                
+                # நிஜமா Email அனுப்பணும்னா இதை Uncomment பண்ணுங்க
+                # send_otp_email("admin@example.com", otp) 
+                
+                return redirect(url_for("verify_otp"))
+            else:
+                # மத்தவங்களுக்கு நேரடி லாகின்
+                session.permanent = True
+                session["username"] = user["username"]
+                session["role"] = user["role"]
+                log_activity("Login", "User logged in successfully")
+                return redirect(url_for("dashboard"))
+                
         error = "Invalid credentials."
-        
     return render_template("login.html", error=error)
 
 @app.route("/verify_otp", methods=["GET", "POST"])
@@ -362,22 +386,52 @@ def verify_otp():
             
     return render_template("verify_otp.html")
 
+@app.route("/force_md_change")
+def force_md_change():
+    conn = get_db()
+    conn.execute("UPDATE users SET role='MD' WHERE role='Admin'")
+    conn.commit()
+    conn.close()
+    return "<h2>Success! Admin role changed to MD. Now go back and login.</h2>"
+
 @app.route("/dashboard")
 def dashboard():
     if not session.get("username"): return redirect(url_for("login"))
     conn = get_db()
     d = {}
+    
+    # நடப்பு நிதியாண்டு (Current FY) தேதிகள்
+    today = datetime.now()
+    fy_start_year = today.year if today.month >= 4 else today.year - 1
+    fy_start = f"{fy_start_year}-04-01"
+    fy_end = f"{fy_start_year + 1}-03-31"
+
+    # 1. Projects
     d['total_projects'] = conn.execute("SELECT COUNT(*) FROM projects").fetchone()[0]
     d['total_project_value'] = conn.execute("SELECT SUM(project_value) FROM projects").fetchone()[0] or 0
     
-    # NEW FIX: Calculate NET SALES (Total Bills - Total Credit Notes)
-    basic_sales = conn.execute("SELECT SUM(basic_amount) FROM bill_items").fetchone()[0] or 0
-    total_cn = conn.execute("SELECT SUM(amount) FROM accounts WHERE transaction_type = 'Credit Note'").fetchone()[0] or 0
-    d['total_sales'] = basic_sales - total_cn
-    d['total_labour'] = conn.execute("SELECT COUNT(*) FROM labour").fetchone()[0]
+    # 2. Total Sales (Current FY) - bill_items-லேர்ந்து மட்டும் எடுக்கிறோம்
+    gross_sales = conn.execute("""
+        SELECT SUM(bi.basic_amount) 
+        FROM bill_items bi 
+        JOIN bills b ON bi.bill_id = b.id 
+        WHERE b.bill_date BETWEEN ? AND ?
+    """, (fy_start, fy_end)).fetchone()[0] or 0
+
+    # 3. Credit Notes (Current FY)
+    total_cn = conn.execute("""
+        SELECT SUM(amount) FROM accounts 
+        WHERE transaction_type = 'Credit Note' 
+        AND transaction_date BETWEEN ? AND ?
+    """, (fy_start, fy_end)).fetchone()[0] or 0
+
+    # Net Sales = Gross Sales - Credit Notes
+    d['total_sales'] = gross_sales - total_cn
     
-    d['total_income'] = conn.execute("SELECT SUM(amount) FROM accounts WHERE transaction_type IN ('Income', 'Debit Note')").fetchone()[0] or 0
-    d['total_expense'] = conn.execute("SELECT SUM(amount) FROM accounts WHERE transaction_type IN ('Expense', 'Credit Note')").fetchone()[0] or 0
+    # 4. Other KPIs
+    d['total_labour'] = conn.execute("SELECT COUNT(*) FROM labour").fetchone()[0]
+    d['total_income'] = conn.execute("SELECT SUM(amount) FROM accounts WHERE transaction_type IN ('Income', 'Debit Note') AND transaction_date BETWEEN ? AND ?", (fy_start, fy_end)).fetchone()[0] or 0
+    d['total_expense'] = conn.execute("SELECT SUM(amount) FROM accounts WHERE transaction_type IN ('Expense', 'Credit Note') AND transaction_date BETWEEN ? AND ?", (fy_start, fy_end)).fetchone()[0] or 0
     
     d['low_stock_count'] = conn.execute("SELECT COUNT(*) FROM stock WHERE opening_stock <= reorder_level").fetchone()[0]
     d['pending_approvals'] = conn.execute("SELECT COUNT(*) FROM purchases WHERE md_approval='Pending'").fetchone()[0]
@@ -390,13 +444,13 @@ def dashboard():
         
     d['recent_bills'] = conn.execute("SELECT * FROM bills ORDER BY id DESC LIMIT 5").fetchall()
     
+    # Project Status Chart Data
     ps = conn.execute("SELECT COALESCE(status, 'Unknown') as status, COUNT(*) as count FROM projects GROUP BY status").fetchall()
     d['status_labels'] = [r['status'] for r in ps]
     d['status_counts'] = [r['count'] for r in ps]
 
     # Cash Flow Data (Last 6 Months)
     cash_flow = []
-    today = datetime.now()
     for i in range(5, -1, -1):
         target_month = today.month - i
         target_year = today.year
@@ -416,9 +470,8 @@ def dashboard():
     d['cash_flow_expense'] = [c['expense'] for c in cash_flow]
 
     conn.close()
-    fy = today.year if today.month >= 4 else today.year - 1
-    
-    return render_template("dashboard.html", **d, today=today, fy_str=f"{fy}-{(fy+1)%100:02d}")
+    return render_template("dashboard.html", **d, today=today, fy_str=f"{fy_start_year}-{(fy_start_year+1)%100:02d}")
+
 
 @app.route("/logout")
 def logout(): session.clear(); return redirect(url_for("login"))
@@ -504,15 +557,16 @@ def convert_lead_to_tender(id):
 @app.route("/users", methods=["GET", "POST"])
 def users():
     if not session.get("username"): return redirect(url_for("login"))
-    if session.get("role") != "Admin":
-        flash("Only Admin can manage users.", "error")
+    if session.get("role") not in ["MD", "GM"]:
+        flash("Only MD and GM can manage users.", "error")
         return redirect(url_for("dashboard"))
         
     conn = get_db()
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     
     if request.method == "POST":
-        u, p, r = request.form.get("username", "").strip(), request.form.get("password", ""), request.form.get("role", "Admin")
+        u, p = request.form.get("username", "").strip(), request.form.get("password", "")
+        r = request.form.get("role", "Site Supervisor") # Default role
         if not u or not p: 
             if is_ajax: return jsonify({'status': 'error', 'message': 'Username & Password required.'})
             flash("Username/Password required.", "error")
@@ -534,11 +588,12 @@ def users():
     conn.close()
     return render_template("users.html", users=ul)
 
+
 @app.route("/users/delete/<int:id>")
 def delete_user(id):
     if not session.get("username"): return redirect(url_for("login"))
-    if session.get("role") != "Admin":
-        flash("Only Admin can delete.", "error")
+    if session.get("role") not in ["MD", "GM"]:
+        flash("Only MD and GM can delete users.", "error")
         return redirect(url_for("users"))
         
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
@@ -551,13 +606,20 @@ def delete_user(id):
     elif target["username"] == session.get("username"):
         if is_ajax: return jsonify({'status': 'error', 'message': 'You cannot delete yourself.'})
         flash("Cannot delete yourself.", "error")
-    elif target["role"] == "Admin":
-        admin_count = conn.execute("SELECT COUNT(*) FROM users WHERE role='Admin'").fetchone()[0]
-        if admin_count <= 1:
-            if is_ajax: return jsonify({'status': 'error', 'message': 'Cannot delete the last Admin user!'})
-            flash("Cannot delete the last Admin user!", "error")
+    elif target["role"] == "MD":
+        if session.get("role") != "MD":
+            if is_ajax: return jsonify({'status': 'error', 'message': 'Only MD can delete another MD.'})
+            flash("Only MD can delete another MD.", "error")
             conn.close()
             return redirect(url_for("users"))
+            
+        md_count = conn.execute("SELECT COUNT(*) FROM users WHERE role='MD'").fetchone()[0]
+        if md_count <= 1:
+            if is_ajax: return jsonify({'status': 'error', 'message': 'Cannot delete the last MD user!'})
+            flash("Cannot delete the last MD user!", "error")
+            conn.close()
+            return redirect(url_for("users"))
+            
         conn.execute("DELETE FROM users WHERE id=?", (id,))
         conn.commit()
         if is_ajax: return jsonify({'status': 'success', 'message': 'User deleted.'})
@@ -575,11 +637,11 @@ def delete_user(id):
 @app.route("/users/edit/<int:id>", methods=["POST"])
 def edit_user_role(id):
     if not session.get("username"): return redirect(url_for("login"))
-    if session.get("role") != "Admin":
-        return jsonify({'status': 'error', 'message': 'Only Admin can change roles.'}) if request.headers.get('X-Requested-With') == 'XMLHttpRequest' else redirect(url_for("users"))
+    if session.get("role") not in ["MD", "GM"]:
+        return jsonify({'status': 'error', 'message': 'Only MD and GM can change roles.'}) if request.headers.get('X-Requested-With') == 'XMLHttpRequest' else redirect(url_for("users"))
 
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
-    valid_roles = ["Admin", "GM", "Accountant", "Store Keeper", "Site Supervisor"]
+    valid_roles = ["MD", "Admin", "GM", "Accountant", "Store Keeper", "Site Supervisor"]
     new_role = request.form.get("role")
     
     if new_role not in valid_roles:
@@ -590,11 +652,17 @@ def edit_user_role(id):
     conn = get_db()
     target = conn.execute("SELECT username, role FROM users WHERE id=?", (id,)).fetchone()
 
-    if target and target["role"] == "Admin" and new_role != "Admin":
-        admin_count = conn.execute("SELECT COUNT(*) FROM users WHERE role='Admin'").fetchone()[0]
-        if admin_count <= 1:
-            if is_ajax: return jsonify({'status': 'error', 'message': 'Cannot demote the last Admin user!'})
-            flash("Cannot demote the last Admin user!", "error")
+    if target and target["role"] == "MD" and new_role != "MD":
+        if session.get("role") != "MD":
+            if is_ajax: return jsonify({'status': 'error', 'message': 'Only MD can change another MD role.'})
+            flash("Only MD can change another MD role.", "error")
+            conn.close()
+            return redirect(url_for("users"))
+            
+        md_count = conn.execute("SELECT COUNT(*) FROM users WHERE role='MD'").fetchone()[0]
+        if md_count <= 1:
+            if is_ajax: return jsonify({'status': 'error', 'message': 'Cannot demote the last MD user!'})
+            flash("Cannot demote the last MD user!", "error")
             conn.close()
             return redirect(url_for("users"))
 
@@ -606,6 +674,7 @@ def edit_user_role(id):
     if is_ajax: return jsonify({'status': 'success', 'message': 'Role updated successfully!'})
     flash("Role updated.", "success")
     return redirect(url_for("users"))
+
 
 @app.route("/change_password", methods=["GET", "POST"])
 def change_password():
@@ -624,11 +693,12 @@ def change_password():
         return redirect(url_for("change_password"))
     return render_template("change_password.html")
 
+
 @app.route("/activity_log")
 def activity_log():
     if not session.get("username"): return redirect(url_for("login"))
-    if session.get("role") != "Admin": 
-        flash("Access Denied: Only Admin can view activity logs.", "error")
+    if session.get("role") not in ["MD", "GM"]: 
+        flash("Access Denied: Only MD and GM can view activity logs.", "error")
         return redirect(url_for("dashboard"))
         
     conn = get_db()
@@ -740,24 +810,45 @@ def tender_items(id):
 def upload_tender_excel(id):
     if not session.get("username"): return redirect(url_for("login"))
     file = request.files.get('excel_file')
-    if not file or file.filename == '': flash("No file selected!", "error"); return redirect(url_for("tender_items", id=id))
+    if not file or file.filename == '': 
+        flash("No file selected!", "error")
+        return redirect(url_for("tender_items", id=id))
     try:
         df = pd.read_excel(file)
-        req_cols = ['Description', 'Quantity', 'Unit', 'Supply Rate', 'Erection Rate']
+        df.columns = df.columns.str.strip() # ஸ்பேஸ் நீக்க
+        
+        # காலம் பேர்களை செக் பண்றோம் (Our Rate இல்லைனாலும் எரர் வராது)
+        req_cols = ['Description', 'Quantity', 'Unit', 'BOQ Supply Rate', 'BOQ Erection Rate']
         if not all(col in df.columns for col in req_cols):
-            flash(f"Invalid format. Need: {', '.join(req_cols)}", "error"); return redirect(url_for("tender_items", id=id))
+            flash(f"Invalid format. Need: {', '.join(req_cols)}", "error")
+            return redirect(url_for("tender_items", id=id))
+            
         conn = get_db()
         for index, row in df.iterrows():
             if pd.notna(row['Description']) and str(row['Description']).strip() != "":
                 q = float(row['Quantity']) if pd.notna(row['Quantity']) else 0
-                s_rate = float(row['Supply Rate']) if pd.notna(row['Supply Rate']) else 0
-                e_rate = float(row['Erection Rate']) if pd.notna(row['Erection Rate']) else 0
-                total_rate = s_rate + e_rate; amt = round(q * total_rate, 2)
-                conn.execute("INSERT INTO tender_items (tender_id, description, unit, quantity, rate, supply_rate, erection_rate, amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (id, str(row['Description']).strip(), str(row['Unit']).strip(), q, total_rate, s_rate, e_rate, amt))
+                sup_rate = float(row['BOQ Supply Rate']) if pd.notna(row['BOQ Supply Rate']) else 0
+                ere_rate = float(row['BOQ Erection Rate']) if pd.notna(row['BOQ Erection Rate']) else 0
+                
+                # புது காலம்கள் (Our Supply / Erection Rate)
+                c_sup_rate = float(row['Our Supply Rate']) if 'Our Supply Rate' in df.columns and pd.notna(row['Our Supply Rate']) else 0
+                c_ere_rate = float(row['Our Erection Rate']) if 'Our Erection Rate' in df.columns and pd.notna(row['Our Erection Rate']) else 0
+                
+                total_rate = sup_rate + ere_rate
+                amt = round(q * total_rate, 2)
+                
+                conn.execute("""INSERT INTO tender_items 
+                    (tender_id, description, unit, quantity, rate, supply_rate, erection_rate, company_supply_rate, company_erection_rate, amount) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", 
+                    (id, str(row['Description']).strip(), str(row['Unit']).strip(), q, total_rate, sup_rate, ere_rate, c_sup_rate, c_ere_rate, amt))
+        
         total = conn.execute("SELECT SUM(amount) FROM tender_items WHERE tender_id=?", (id,)).fetchone()[0] or 0
         conn.execute("UPDATE tenders SET estimated_value=? WHERE id=?", (total, id))
-        conn.commit(); conn.close(); flash("Excel uploaded!", "success")
-    except Exception as e: flash(f"Error: {str(e)}", "error")
+        conn.commit()
+        conn.close()
+        flash("Excel uploaded with BOQ & Target Rates!", "success")
+    except Exception as e: 
+        flash(f"Error: {str(e)}", "error")
     return redirect(url_for("tender_items", id=id))
 
 @app.route("/tender/item/edit/<int:item_id>", methods=["POST"])
@@ -776,11 +867,25 @@ def edit_tender_item(item_id):
 @app.route("/tender/sample_excel")
 def download_tender_sample():
     if not session.get("username"): return redirect(url_for("login"))
-    df = pd.DataFrame({'Description': ['Sample Item'], 'Quantity': [10], 'Unit': ['Nos'], 'Supply Rate': [80], 'Erection Rate': [20]})
+    
+    data = {
+        'Description': ['Sample Item 1', 'Sample Item 2'],
+        'Quantity': [10, 5],
+        'Unit': ['Nos', 'Mtr'],
+        'BOQ Supply Rate': [120000, 5000],
+        'BOQ Erection Rate': [60000, 1000],
+        'Our Supply Rate': [90000, 4000],
+        'Our Erection Rate': [40000, 800]
+    }
+    
+    df = pd.DataFrame(data)
+    
     out = io.BytesIO()
-    with pd.ExcelWriter(out, engine='openpyxl') as writer: df.to_excel(writer, index=False)
+    with pd.ExcelWriter(out, engine='openpyxl') as writer: 
+        df.to_excel(writer, index=False)
     out.seek(0)
-    return send_file(out, download_name="Sample_BOQ.xlsx", as_attachment=True)
+    
+    return send_file(out, download_name="Sample_BOQ_Tender.xlsx", as_attachment=True)
 
 @app.route("/tender/update_status/<int:id>/<status>")
 def update_tender_status(id, status):
@@ -791,7 +896,8 @@ def update_tender_status(id, status):
 @app.route("/tender/convert/<int:id>")
 def convert_tender(id):
     if not session.get("username"): return redirect(url_for("login"))
-    conn = get_db(); t = conn.execute("SELECT * FROM tenders WHERE id=?", (id,)).fetchone()
+    conn = get_db()
+    t = conn.execute("SELECT * FROM tenders WHERE id=?", (id,)).fetchone()
     
     if t and t['status'] == 'Won':
         existing_project = conn.execute("SELECT id FROM projects WHERE project_name=?", (t['tender_no'],)).fetchone()
@@ -802,8 +908,15 @@ def convert_tender(id):
         existing_boq = conn.execute("SELECT id FROM poq WHERE project_name=?", (t['tender_no'],)).fetchone()
         
         if not existing_boq:
+            # ⚠️ இங்க தான் actual_quantity சேர்க்கப்பட்டுள்ளது
             for item in conn.execute("SELECT * FROM tender_items WHERE tender_id=?", (id,)).fetchall():
-                conn.execute("INSERT INTO poq (project_name, material_name, unit, quantity, rate, amount, supply_rate, erection_rate) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (t['tender_no'], item['description'], item['unit'], item['quantity'], item['rate'], item['amount'], item['supply_rate'], item['erection_rate']))
+                conn.execute("""INSERT INTO poq 
+                    (project_name, material_name, unit, quantity, actual_quantity, rate, amount, supply_rate, erection_rate, company_supply_rate, company_erection_rate) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", 
+                    (t['tender_no'], item['description'], item['unit'], 
+                     item['quantity'], item['quantity'], # <-- quantity மற்றும் actual_quantity ரெண்டுக்கும் ஒரே மதிப்பு
+                     item['rate'], item['amount'], 
+                     item['supply_rate'], item['erection_rate'], item['company_supply_rate'], item['company_erection_rate']))
             
             conn.commit(); 
             flash("Tender converted to Project Successfully! Estimation items copied to BOQ.", "success")
@@ -816,6 +929,61 @@ def convert_tender(id):
     flash("Only 'Won' tenders can be converted to Projects.", "error")
     conn.close()
     return redirect(url_for("tenders"))
+
+@app.route("/tender/pnl/<int:id>")
+def tender_pnl(id):
+    if not session.get("username"): return redirect(url_for("login"))
+    conn = get_db()
+
+    tender = conn.execute("SELECT * FROM tenders WHERE id=?", (id,)).fetchone()
+    if not tender:
+        flash("Tender not found!", "error")
+        conn.close()
+        return redirect(url_for("tenders"))
+        
+    # Tender Items-ஐ எடுக்கிறோம்
+    items = conn.execute("SELECT * FROM tender_items WHERE tender_id=?", (id,)).fetchall()
+    conn.close()
+    
+    pnl_data = []
+    total_client_val = 0
+    total_target_cost = 0
+    total_profit = 0
+    
+    for item in items:
+        qty = item['quantity'] or 0
+        # Client Value = BOQ Supply + BOQ Erection
+        client_rate = (item['supply_rate'] or 0) + (item['erection_rate'] or 0)
+        client_val = qty * client_rate
+        
+        # Target Cost = Our Supply + Our Erection
+        our_rate = (item['company_supply_rate'] or 0) + (item['company_erection_rate'] or 0)
+        target_cost = qty * our_rate
+        
+        # Profit = Client Value - Target Cost
+        profit = client_val - target_cost
+        
+        pnl_data.append({
+            "description": item['description'],
+            "qty": qty,
+            "unit": item['unit'],
+            "client_rate": client_rate,
+            "client_val": client_val,
+            "our_rate": our_rate,
+            "target_cost": target_cost,
+            "profit": profit
+        })
+        
+        total_client_val += client_val
+        total_target_cost += target_cost
+        total_profit += profit
+        
+    return render_template("tender_pnl.html", 
+                           tender=tender, 
+                           pnl_data=pnl_data, 
+                           total_client_val=total_client_val, 
+                           total_target_cost=total_target_cost, 
+                           total_profit=total_profit)
 
 # ------------------------------------------------------------------
 # HR MODULE - EMPLOYEE DIRECTORY
@@ -1024,8 +1192,8 @@ def leave_management():
 @app.route("/leave_approve/<int:id>/<status>")
 def leave_approve(id, status):
     if not session.get("username"): return redirect(url_for("login"))
-    if session.get("role") not in ["Admin", "GM"]:
-        flash("Only Admin/GM can approve leaves.", "error")
+    if session.get("role") not in ["MD", "Admin", "GM"]:
+        flash("Only MD/GM can approve leaves.", "error")
         return redirect(url_for("dashboard"))
     conn = get_db()
     conn.execute("UPDATE staff_leaves SET status=? WHERE id=?", (status, id))
@@ -1075,7 +1243,7 @@ import calendar # மாசத்துல எத்தனை நாள்-ன�
 @app.route("/payroll", methods=["GET", "POST"])
 def payroll():
     if not session.get("username"): return redirect(url_for("login"))
-    if session.get("role") not in ["Admin", "GM", "Accountant"]:
+    if session.get("role") not in ["MD", "Admin", "GM", "Accountant"]:
         flash("Access Denied", "error")
         return redirect(url_for("dashboard"))
         
@@ -1399,22 +1567,23 @@ def indents():
             quantities = request.form.getlist("quantity[]")
             remarks = request.form.getlist("remarks[]")
 
-            # --- NEW VALIDATION: Check against BOQ Remaining Qty ---
+            # --- VALIDATION: Check against ACTUAL Qty ---
             for i in range(len(materials)):
                 if materials[i].strip() and float(quantities[i] or 0) > 0:
                     mat_name = materials[i].strip()
                     req_qty = float(quantities[i])
 
-                    # 1. Get BOQ Qty
-                    boq_item = conn.execute("SELECT quantity FROM poq WHERE TRIM(project_name)=TRIM(?) AND TRIM(material_name)=TRIM(?)", (sp, mat_name)).fetchone()
+                    # 1. Get Actual Qty from POQ
+                    boq_item = conn.execute("SELECT actual_quantity, quantity FROM poq WHERE TRIM(project_name)=TRIM(?) AND TRIM(material_name)=TRIM(?)", (sp, mat_name)).fetchone()
                     if not boq_item:
                         flash(f"Error: Material '{mat_name}' is not in this Project's BOQ.", "error")
                         conn.close()
                         return redirect(url_for("indents", project=sp))
                     
-                    boq_qty = boq_item['quantity'] or 0
+                    # Use actual_quantity, fallback to quantity if null
+                    boq_qty = boq_item['actual_quantity'] if boq_item['actual_quantity'] else (boq_item['quantity'] or 0)
 
-                    # 2. Get Already Indented Qty (excluding Cancelled ones)
+                    # 2. Get Already Indented Qty
                     already_indented = conn.execute("""
                         SELECT SUM(ii.quantity) FROM indent_items ii 
                         JOIN indents i ON ii.indent_id = i.id 
@@ -1425,7 +1594,7 @@ def indents():
                     remaining = boq_qty - already_indented
 
                     if req_qty > remaining + 0.01:
-                        flash(f"Validation Error: Cannot indent {req_qty} of '{mat_name}'. Only {remaining:.2f} qty remaining in BOQ.", "error")
+                        flash(f"Validation Error: Cannot indent {req_qty} of '{mat_name}'. Only {remaining:.2f} qty remaining in Actual BOQ.", "error")
                         conn.close()
                         return redirect(url_for("indents", project=sp))
             # --- VALIDATION END ---
@@ -1450,31 +1619,31 @@ def indents():
         project_list = conn.execute("SELECT project_name FROM projects ORDER BY project_name").fetchall()
         
         boq_data = []
-        boq_dict = {} # NEW: For frontend JS validation
+        boq_dict = {}
 
         if sp:
             boq_items = conn.execute("SELECT * FROM poq WHERE TRIM(project_name)=TRIM(?)", (sp,)).fetchall()
             for item in boq_items:
                 mat_name = item['material_name']
                 
-                # Calculate remaining based on Total Indented
                 already_indented = conn.execute("""
                     SELECT SUM(ii.quantity) FROM indent_items ii 
                     JOIN indents i ON ii.indent_id = i.id 
                     WHERE TRIM(i.project_name)=TRIM(?) AND TRIM(ii.material_name)=TRIM(?) AND i.status != 'Cancelled'
                 """, (sp, mat_name)).fetchone()[0] or 0
                 
-                remaining = (item['quantity'] or 0) - already_indented
+                # Use actual_quantity for frontend display
+                total_boq_qty = item['actual_quantity'] if item['actual_quantity'] else (item['quantity'] or 0)
+                remaining = total_boq_qty - already_indented
                 
-                if remaining > 0.01: # Show if there is any remaining qty
+                if remaining > 0.01:
                     boq_data.append({
                         "material_name": item['material_name'],
                         "unit": item['unit'],
-                        "boq_qty": item['quantity'],
+                        "boq_qty": total_boq_qty,
                         "indented_qty": already_indented,
                         "remaining_qty": remaining
                     })
-                    # Pass to JS dict (Uppercase for easy matching)
                     boq_dict[mat_name.strip().upper()] = remaining
 
         indent_list = conn.execute("""
@@ -2236,11 +2405,8 @@ def attendance_report():
 def accounts_entry():
     if not session.get("username"): return redirect(url_for("login"))
     conn = get_db()
-    
-    # URL-லேர்ந்து அல்லது ஃபார்ம்லேர்ந்து ப்ராஜெக்ட் பேரை எடுக்கிறோம்
     sp = request.args.get("project", "") or request.form.get("project_name", "")
     
-    # ⚠️ POST ரிக்வெஸ்ட் (புது பில் சேவ்) மற்றும் ப்ராஜெக்ட் காலியா இருந்தா மட்டும் 'General' ஆ மாத்தணும்
     if request.method == "POST" and not sp:
         sp = "General"
 
@@ -2259,6 +2425,17 @@ def accounts_entry():
                 er = request.form.getlist("erection_rate[]")
                 gst = request.form.getlist("gst_rate[]")
                 cp_list = request.form.getlist("claim_percentage[]")
+                max_len = len(desc)
+                def pad_list(lst, length, default='0'):
+                    return lst + [default] * (length - len(lst))
+                
+                hsn = pad_list(hsn, max_len, '')
+                qty = pad_list(qty, max_len, '0')
+                sr = pad_list(sr, max_len, '0')
+                er = pad_list(er, max_len, '0')
+                gst = pad_list(gst, max_len, '18')
+                cp_list = pad_list(cp_list, max_len, '100')
+
                 gt = 0
                 its = []
                 
@@ -2269,7 +2446,6 @@ def accounts_entry():
                         e = float(er[i] or 0)
                         g = float(gst[i] or 0)
                         cp = float(cp_list[i] or 100) if i < len(cp_list) else 100.0
-                        
                         full_b = q * (s + e)
                         b = round(full_b * (cp / 100), 2)
                         ga = round(b * (g / 100), 2)
@@ -2361,10 +2537,19 @@ def accounts_entry():
     pd, bl, al, ti, te, cb, pb = None, [], [], 0, 0, 0, []
     pending_payments, pending_bills, unbilled_work = [], [], []
     
+    # Basic & GST-ஐ தனித்தனியா காட்ட இங்க SQL மாற்றப்பட்டுள்ளது
+    bills_query = """
+        SELECT b.id, b.project_name, b.bill_no, b.bill_date, b.total_value, b.bill_type,
+               IFNULL(SUM(bi.basic_amount), 0) as basic_total,
+               IFNULL(SUM(bi.gst_amount), 0) as gst_total
+        FROM bills b
+        LEFT JOIN bill_items bi ON b.id = bi.bill_id
+    """
+    
     if sp and sp != "General":
         pd = conn.execute("SELECT * FROM projects WHERE TRIM(project_name)=TRIM(?)", (sp,)).fetchone()
         if pd:
-            bl = conn.execute("SELECT * FROM bills WHERE TRIM(project_name)=TRIM(?) ORDER BY id DESC", (sp,)).fetchall()
+            bl = conn.execute(bills_query + " WHERE TRIM(b.project_name)=TRIM(?) GROUP BY b.id ORDER BY b.bill_date DESC", (sp,)).fetchall()
             cb = sum((b['total_value'] or 0) for b in bl)
             al = conn.execute("SELECT * FROM accounts WHERE TRIM(project_name)=TRIM(?) AND transaction_type != 'Credit Note' ORDER BY transaction_date DESC, id DESC", (sp,)).fetchall()
             ti = sum((r['amount'] or 0) for r in al if r['transaction_type'] in ('Income', 'Debit Note'))
@@ -2387,12 +2572,11 @@ def accounts_entry():
                 AND ((wp.qty_supply > IFNULL(wp.billed_qty_supply, 0)) OR (wp.qty_erection > IFNULL(wp.billed_qty_erection, 0)))
             """, (sp,)).fetchall()
     else:
-        # sp காலியா இருந்தா (All Projects) அல்லது 'General' ஆ இருந்தா
         if sp == "General":
-            bl = conn.execute("SELECT * FROM bills WHERE TRIM(project_name)='General' ORDER BY id DESC").fetchall()
+            bl = conn.execute(bills_query + " WHERE TRIM(b.project_name)='General' GROUP BY b.id ORDER BY b.bill_date DESC").fetchall()
             al = conn.execute("SELECT * FROM accounts WHERE TRIM(project_name)='General' AND transaction_type != 'Credit Note' ORDER BY transaction_date DESC, id DESC").fetchall()
         else:
-            bl = conn.execute("SELECT * FROM bills ORDER BY id DESC").fetchall()
+            bl = conn.execute(bills_query + " GROUP BY b.id ORDER BY b.bill_date DESC").fetchall()
             al = conn.execute("SELECT * FROM accounts WHERE transaction_type != 'Credit Note' ORDER BY transaction_date DESC, id DESC").fetchall()
             
         cb = sum((b['total_value'] or 0) for b in bl)
@@ -2633,28 +2817,60 @@ def accounts():
     if not session.get("username"): return redirect(url_for("login"))
     conn = get_db()
     
+    # நடப்பு நிதியாண்டு (Current FY) தேதிகள்
+    today = datetime.now()
+    fy_start_year = today.year if today.month >= 4 else today.year - 1
+    default_start = f"{fy_start_year}-04-01"
+    default_end = f"{fy_start_year + 1}-03-31"
+
+    # URL-லேர்ந்து தேதியை எடுக்கிறோம்
+    start_date = request.args.get("start_date") or default_start
+    end_date = request.args.get("end_date") or default_end
+    
     ap = conn.execute("SELECT * FROM projects").fetchall()
     pl = conn.execute("SELECT * FROM projects ORDER BY project_name").fetchall()
     
     pnl = []
     for p in ap:
-        pi = conn.execute("SELECT SUM(amount) FROM accounts WHERE project_name=? AND transaction_type IN ('Income', 'Debit Note')", (p['project_name'],)).fetchone()[0] or 0
-        pe = conn.execute("SELECT SUM(amount) FROM accounts WHERE project_name=? AND transaction_type = 'Expense'", (p['project_name'],)).fetchone()[0] or 0
+        # 1. Total Sales (Manual + Tally) - bill_items-லேர்ந்து தான் எடுக்கணும்
+        sales = conn.execute("""
+            SELECT SUM(bi.basic_amount) 
+            FROM bill_items bi 
+            JOIN bills b ON bi.bill_id = b.id 
+            WHERE TRIM(b.project_name) = TRIM(?) AND b.bill_date BETWEEN ? AND ?
+        """, (p['project_name'], start_date, end_date)).fetchone()[0] or 0
         
-        profit = pi - pe
+        # 2. Total Income (நிஜமாவே வசூலான காசு - Receipts)
+        income = conn.execute("""
+            SELECT SUM(amount) FROM accounts 
+            WHERE (TRIM(project_name)=TRIM(?) OR (TRIM(project_name)='General' AND TRIM(paid_name)=TRIM(?)))
+            AND transaction_type IN ('Receipt', 'Bank Receipt') 
+            AND transaction_date BETWEEN ? AND ?
+        """, (p['project_name'], p['client_name'], start_date, end_date)).fetchone()[0] or 0
+        
+        # 3. Total Expense (செலவுகள்)
+        expense = conn.execute("""
+            SELECT SUM(amount) FROM accounts 
+            WHERE project_name=? AND transaction_type = 'Expense' 
+            AND transaction_date BETWEEN ? AND ?
+        """, (p['project_name'], start_date, end_date)).fetchone()[0] or 0
+        
+        # லாபம் (Sales - Expense)
+        profit = sales - expense
         
         pnl.append({
             "id": p['id'], 
             "project_name": p['project_name'], 
             "client": p['client_name'], 
             "value": p['project_value'], 
-            "income": pi, 
-            "expense": pe, 
+            "sales": sales,       # பில் போட்ட அமவுண்ட்
+            "income": income,     # வசூலான அமவுண்ட்
+            "expense": expense, 
             "profit": profit
         })
         
     conn.close()
-    return render_template("accounts.html", pnl_list=pnl, project_list=pl)
+    return render_template("accounts.html", pnl_list=pnl, project_list=pl, start_date=start_date, end_date=end_date)
 
 @app.route("/general_expenses", methods=["GET", "POST"])
 def general_expenses():
@@ -2780,22 +2996,26 @@ def company_pnl():
                            sales_gst=sales_gst,
                            purchase_gst=purchase_gst)
 
-
 @app.route("/project_pnl/<project_name>")
 def project_pnl_detail(project_name):
     if not session.get("username"): return redirect(url_for("login"))
-    conn = get_db(); p = conn.execute("SELECT * FROM projects WHERE project_name=?", (project_name,)).fetchone()
+    conn = get_db()
+    p = conn.execute("SELECT * FROM projects WHERE project_name=?", (project_name,)).fetchone()
     
-    tx = conn.execute("SELECT * FROM accounts WHERE project_name=? AND transaction_type != 'Credit Note' ORDER BY transaction_date ASC, id ASC", (project_name,)).fetchall()
+    # Receipt & Payment மட்டும் எடுக்கிறோம்
+    tx = conn.execute("""
+        SELECT * FROM accounts 
+        WHERE (TRIM(project_name)=TRIM(?) OR (TRIM(project_name)='General' AND TRIM(paid_name)=TRIM(?)))
+        AND transaction_type IN ('Receipt', 'Payment', 'Bank Receipt', 'Bank Payment') 
+        ORDER BY transaction_date ASC, id ASC
+        """, (project_name, p['client_name'])).fetchall()
     conn.close() 
     
-    ti = sum(t['amount'] for t in tx if t['transaction_type'] in ('Income', 'Debit Note'))
-    
-    te = sum(t['amount'] for t in tx if t['transaction_type'] == 'Expense')
-    
-    # Net Profit (In - Out)
+    ti = sum(t['amount'] for t in tx if 'receipt' in t['transaction_type'].lower())
+    te = sum(t['amount'] for t in tx if 'payment' in t['transaction_type'].lower())
     net_profit = ti - te
     
+    # transactions=tx அப்டின்னு கண்டிப்பா இருக்கணும்
     return render_template("project_pnl_detail.html", project=p, transactions=tx, total_inflow=ti, total_outflow=te, net_profit=net_profit)
 
 @app.route("/cost_control/<project_name>")
@@ -2805,14 +3025,47 @@ def cost_control(project_name):
     project = conn.execute("SELECT * FROM projects WHERE project_name=?", (project_name,)).fetchone()
     boq_items = conn.execute("SELECT * FROM poq WHERE project_name=?", (project_name,)).fetchall()
     
+    # 1. அந்த ப்ராஜெக்ட்டுக்கு ஆகிருக்கற மொத்த Purchase செலவு (BOQ இருந்தாலும், இல்லைனாலும்)
+    total_actual_pur_all = conn.execute("""
+        SELECT SUM(pi.quantity * pi.rate) FROM purchase_items pi 
+        JOIN purchases p ON pi.purchase_id = p.id 
+        WHERE p.project_name = ? AND p.md_approval = 'Approved'
+    """, (project_name,)).fetchone()[0] or 0
+
+    # 2. மத்த செலவுகள் (Labour, Subcon, Misc - Purchase/Material Issue தவிர)
     total_other_exp = conn.execute("""
         SELECT SUM(amount) FROM accounts 
         WHERE project_name=? AND transaction_type = 'Expense' 
-        AND IFNULL(category, '') NOT IN ('Payment', 'M', 'Credit Note', 'Debit Note')
+        AND IFNULL(category, '') NOT IN ('Payment', 'M', 'Credit Note', 'Debit Note', 'Purchase')
     """, (project_name,)).fetchone()[0] or 0
     
-    cost_data = []; t_plan=0; t_pur=0; t_fore=0; t_client=0; t_item_profit=0
-    
+    cost_data = []
+    t_plan=0; t_pur=0; t_fore=0; t_client=0; t_item_profit=0
+
+    # ==========================================
+    # 💡 IDEA 1: BOQ இல்லைனா, Project Value-ஐ எடுத்து லாபம் கணக்கிடு
+    # ==========================================
+    if not boq_items:
+        total_client_value = project['project_value'] or 0
+        total_projected_cost = total_actual_pur_all + total_other_exp
+        final_net_profit = total_client_value - total_projected_cost
+        
+        conn.close()
+        return render_template("cost_control.html", 
+                               project=project, 
+                               cost_data=[], # டேபிள் காலியா இருக்கும்
+                               total_plan_cost=0, 
+                               total_actual_pur=total_actual_pur_all, 
+                               total_other_exp=total_other_exp,
+                               total_forecast_cost=0, 
+                               total_client_value=total_client_value, 
+                               total_projected_cost=total_projected_cost, 
+                               total_item_profit=0, 
+                               final_net_profit=final_net_profit)
+
+    # ==========================================
+    # BOQ இருந்தா, பழைய மாதிரியே விவரமா கணக்கிடு
+    # ==========================================
     for item in boq_items:
         item_dict = dict(item)
         qty = item_dict.get('quantity') or 0
@@ -2821,28 +3074,24 @@ def cost_control(project_name):
         
         plan = qty * (c_sup + c_ere)
         
-        # 1. Actual Purchase Value
         pur = conn.execute("""
             SELECT SUM(pi.quantity * pi.rate) FROM purchase_items pi 
             JOIN purchases p ON pi.purchase_id = p.id 
             WHERE p.project_name = ? AND LOWER(TRIM(pi.material_name)) = LOWER(TRIM(?))
         """, (project_name, item_dict['material_name'])).fetchone()[0] or 0
 
-        # NEW: Actual Purchase Qty
         pur_qty = conn.execute("""
             SELECT SUM(pi.quantity) FROM purchase_items pi 
             JOIN purchases p ON pi.purchase_id = p.id 
             WHERE p.project_name = ? AND LOWER(TRIM(pi.material_name)) = LOWER(TRIM(?))
         """, (project_name, item_dict['material_name'])).fetchone()[0] or 0
 
-        # NEW: Material Issued Qty
         issued_qty = conn.execute("""
             SELECT SUM(mii.quantity) FROM material_issue_items mii
             JOIN material_issues mi ON mii.issue_id = mi.id
             WHERE mi.project_name = ? AND LOWER(TRIM(mii.material_name)) = LOWER(TRIM(?))
         """, (project_name, item_dict['material_name'])).fetchone()[0] or 0
 
-        # NEW: Remaining Stock Qty (Purchased - Issued)
         stock_qty = pur_qty - issued_qty
         
         done_ere = conn.execute("SELECT SUM(qty_erection) FROM work_progress WHERE boq_item_id=?", (item_dict['id'],)).fetchone()[0] or 0
@@ -2859,7 +3108,7 @@ def cost_control(project_name):
             "description": item_dict['material_name'], "qty": qty, "client_value": cli_val, 
             "plan_cost": plan, "actual_pur": pur, "forecast_cost": fore, 
             "total_projected_cost": item_total_cost, "projected_profit": item_profit,
-            "pur_qty": pur_qty, "issued_qty": issued_qty, "stock_qty": stock_qty # NEW ADDITIONS
+            "pur_qty": pur_qty, "issued_qty": issued_qty, "stock_qty": stock_qty
         })
         
         t_plan += plan; t_pur += pur; t_fore += fore; t_client += cli_val; t_item_profit += item_profit
@@ -2956,9 +3205,8 @@ def client_ledger():
     if not session.get("username"): return redirect(url_for("login"))
     conn = get_db()
     
-    # Clients List
     clients = conn.execute("""
-        SELECT DISTINCT paid_name as name FROM accounts WHERE transaction_type IN ('Income', 'Credit Note') AND paid_name!='' 
+        SELECT DISTINCT paid_name as name FROM accounts WHERE transaction_type IN ('Receipt', 'Credit Note', 'Income') AND paid_name!='' 
         UNION SELECT DISTINCT party_name as name FROM parties WHERE party_type='Debtor' 
         UNION SELECT DISTINCT client_name as name FROM projects
     """).fetchall()
@@ -2972,15 +3220,35 @@ def client_ledger():
         p = conn.execute("SELECT opening_balance FROM parties WHERE TRIM(party_name)=TRIM(?) AND party_type='Debtor'", (sc,)).fetchone()
         base_ob = p['opening_balance'] if p else 0
         
-        past_bills = conn.execute("SELECT SUM(total_value) FROM bills WHERE project_name IN (SELECT project_name FROM projects WHERE TRIM(client_name)=TRIM(?)) AND bill_date < ?", (sc, start_date)).fetchone()[0] or 0
-        past_payments = conn.execute("SELECT SUM(amount) FROM accounts WHERE transaction_type IN ('Income', 'Credit Note') AND TRIM(paid_name)=TRIM(?) AND transaction_date < ?", (sc, start_date)).fetchone()[0] or 0
+        # Accounts டேபிள்லேர்ந்து அந்த கிளையண்டுக்கு சொந்தமான ப்ராஜெக்ட்டை கண்டுபிடிக்கிறோம்
+        past_bills = conn.execute("""
+            SELECT SUM(total_value) FROM bills 
+            WHERE project_name IN (SELECT project_name FROM accounts WHERE TRIM(paid_name)=TRIM(?) AND transaction_type='Income') 
+            AND bill_date < ?
+        """, (sc, start_date)).fetchone()[0] or 0
+        
+        past_payments = conn.execute("""
+            SELECT SUM(amount) FROM accounts 
+            WHERE transaction_type IN ('Receipt', 'Credit Note') AND TRIM(paid_name)=TRIM(?) AND transaction_date < ?
+        """, (sc, start_date)).fetchone()[0] or 0
         
         ob = base_ob + past_bills - past_payments
 
-        b = conn.execute("SELECT bill_date as date, 'Bill (Inv: ' || bill_no || ')' as particulars, total_value as debit, 0 as credit FROM bills WHERE project_name IN (SELECT project_name FROM projects WHERE TRIM(client_name)=TRIM(?)) AND bill_date >= ? AND bill_date <= ?", (sc, start_date, end_date)).fetchall()
+        # 1. Bills (Debit)
+        b = conn.execute("""
+            SELECT bill_date as date, 'Bill (Inv: ' || bill_no || ')' as particulars, total_value as debit, 0 as credit 
+            FROM bills 
+            WHERE project_name IN (SELECT project_name FROM accounts WHERE TRIM(paid_name)=TRIM(?) AND transaction_type='Income') 
+            AND bill_date >= ? AND bill_date <= ?
+        """, (sc, start_date, end_date)).fetchall()
         
-        # FIX: Added TRIM to ensure match, and fetched transaction_type
-        pay = conn.execute("SELECT transaction_date as date, 'By ' || description as particulars, 0 as debit, amount as credit FROM accounts WHERE transaction_type IN ('Income', 'Credit Note', 'Receipt') AND TRIM(paid_name)=TRIM(?) AND transaction_date >= ? AND transaction_date <= ?", (sc, start_date, end_date)).fetchall()
+        # 2. Receipts / Credit Notes (Credit)
+        pay = conn.execute("""
+            SELECT transaction_date as date, 'By ' || description as particulars, 0 as debit, amount as credit 
+            FROM accounts 
+            WHERE transaction_type IN ('Credit Note', 'Receipt', 'Bank Receipt') AND TRIM(paid_name)=TRIM(?) 
+            AND transaction_date >= ? AND transaction_date <= ?
+        """, (sc, start_date, end_date)).fetchall()
         
         raw = [dict(x) for x in b] + [dict(x) for x in pay]; raw.sort(key=lambda x: x['date'] if x['date'] else '9999')
         
@@ -2999,7 +3267,6 @@ def vendor_ledger():
     v = conn.execute("SELECT DISTINCT supplier_name as name FROM purchases UNION SELECT DISTINCT party_name as name FROM parties WHERE party_type='Creditor'").fetchall()
     sv = request.args.get("vendor", "")
     
-    # NEW: Date filters
     start_date = request.args.get("start_date") or datetime.now().strftime("%Y-04-01")
     end_date = request.args.get("end_date") or datetime.now().strftime("%Y-%m-%d")
 
@@ -3008,11 +3275,32 @@ def vendor_ledger():
         p = conn.execute("SELECT opening_balance FROM parties WHERE party_name=? AND party_type='Creditor'", (sv,)).fetchone()
         if p: ob = p['opening_balance']
         
-        po = conn.execute("SELECT po.id, po.po_date as date, 'PO #' || po.id as particulars, 'PO' as type, IFNULL(SUM(po_items.quantity*po_items.rate),0)*1.18 as po_value, 0 as bill_value, 0 as paid_amount FROM po JOIN po_items ON po.id=po_items.po_id WHERE po.vendor_name=? AND po.po_date >= ? AND po.po_date <= ? GROUP BY po.id", (sv, start_date, end_date)).fetchall()
-        b = conn.execute("SELECT id, invoice_date as date, 'Bill' as particulars, 'Bill' as type, 0 as po_value, total_amount as bill_value, 0 as paid_amount FROM purchases WHERE supplier_name=? AND invoice_date >= ? AND invoice_date <= ?", (sv, start_date, end_date)).fetchall()
-        pay = conn.execute("SELECT id, transaction_date as date, 'Payment' as particulars, 'Payment' as type, 0 as po_value, 0 as bill_value, amount as paid_amount FROM accounts WHERE transaction_type IN ('Expense', 'Debit Note', 'Payment') AND paid_name=? AND transaction_date >= ? AND transaction_date <= ?", (sv, start_date, end_date)).fetchall()
+        # PO, Bills எல்லாம் எடுக்கிறோம்
+        po = conn.execute("""
+            SELECT po.id, po.po_date as date, 'PO #' || po.id as particulars, 'PO' as type, 
+                   IFNULL(SUM(po_items.quantity*po_items.rate),0)*1.18 as po_value, 0 as bill_value, 0 as paid_amount 
+            FROM po JOIN po_items ON po.id=po_items.po_id 
+            WHERE po.vendor_name=? AND po.po_date >= ? AND po.po_date <= ? GROUP BY po.id
+        """, (sv, start_date, end_date)).fetchall()
         
-        raw = [dict(x) for x in po] + [dict(x) for x in b] + [dict(x) for x in pay]; raw.sort(key=lambda x: x['date'] if x['date'] else '9999')
+        b = conn.execute("""
+            SELECT id, invoice_date as date, 'Bill' as particulars, 'Bill' as type, 
+                   0 as po_value, total_amount as bill_value, 0 as paid_amount 
+            FROM purchases 
+            WHERE supplier_name=? AND invoice_date >= ? AND invoice_date <= ?
+        """, (sv, start_date, end_date)).fetchall()
+        
+        # Payments & Debit Notes
+        pay = conn.execute("""
+            SELECT id, transaction_date as date, 'Payment' as particulars, 'Payment' as type, 
+                   0 as po_value, 0 as bill_value, amount as paid_amount 
+            FROM accounts 
+            WHERE transaction_type IN ('Debit Note', 'Payment', 'Bank Payment') AND paid_name=? 
+            AND transaction_date >= ? AND transaction_date <= ?
+        """, (sv, start_date, end_date)).fetchall()
+        
+        raw = [dict(x) for x in po] + [dict(x) for x in b] + [dict(x) for x in pay]
+        raw.sort(key=lambda x: x['date'] if x['date'] else '9999')
         rb = ob
         for r in raw:
             if r['type'] != 'PO': rb += (r['bill_value'] or 0) - (r['paid_amount'] or 0)
@@ -3032,29 +3320,67 @@ def vendor_ledger():
 def poq():
     if not session.get("username"): return redirect(url_for("login"))
     conn = get_db(); sp = request.args.get("project", ""); eid = request.args.get("edit")
+    
     if request.method == "POST":
         sp = request.form.get("project_name", ""); eid = request.form.get("edit_id")
         try:
-            cur = conn.cursor(); desc = request.form.getlist("item_description[]"); units = request.form.getlist("unit[]"); qtys = request.form.getlist("quantity[]"); srs = request.form.getlist("supply_rate[]"); ers = request.form.getlist("erection_rate[]"); csrs = request.form.getlist("comp_supply_rate[]"); cers = request.form.getlist("comp_erection_rate[]"); subs = request.form.getlist("subcon_name[]"); subrs = request.form.getlist("subcon_rate[]")
+            cur = conn.cursor(); 
+            desc = request.form.getlist("item_description[]"); 
+            units = request.form.getlist("unit[]"); 
+            qtys = request.form.getlist("quantity[]"); 
+            act_qtys = request.form.getlist("actual_quantity[]") # NEW
+            srs = request.form.getlist("supply_rate[]"); 
+            ers = request.form.getlist("erection_rate[]"); 
+            csrs = request.form.getlist("comp_supply_rate[]"); 
+            cers = request.form.getlist("comp_erection_rate[]"); 
+            subs = request.form.getlist("subcon_name[]"); 
+            subrs = request.form.getlist("subcon_rate[]")
+            
             for i in range(len(desc)):
                 if desc[i].strip():
-                    q, sr, er, csr, cer = float(qtys[i] or 0), float(srs[i] or 0), float(ers[i] or 0), float(csrs[i] or 0), float(cers[i] or 0)
-                    sn = subs[i].strip() if i < len(subs) and subs[i] else ""; scr = float(subrs[i] or 0)
-                    u = units[i]; tr = sr + er; amt = round(q*tr, 2)
+                    q = float(qtys[i] or 0)
+                    aq = float(act_qtys[i] or 0) if i < len(act_qtys) and act_qtys[i] else q # NEW: Fallback to q if empty
+                    
+                    sr = float(srs[i] or 0)
+                    er = float(ers[i] or 0)
+                    csr = float(csrs[i] or 0)
+                    cer = float(cers[i] or 0)
+                    
+                    sn = subs[i].strip() if i < len(subs) and subs[i] else ""
+                    scr = float(subrs[i] or 0)
+                    u = units[i]
+                    
+                    tr = sr + er
+                    amt = round(aq * tr, 2) # CHANGED: Calculation using actual qty (aq)
+                    
                     if eid:
-                        cur.execute("UPDATE poq SET material_name=?, unit=?, quantity=?, rate=?, amount=?, supply_rate=?, erection_rate=?, company_supply_rate=?, company_erection_rate=?, subcon_name=?, subcon_rate=? WHERE id=?", (desc[i], u, q, tr, amt, sr, er, csr, cer, sn, scr, eid))
+                        cur.execute("""UPDATE poq SET 
+                            material_name=?, unit=?, quantity=?, actual_quantity=?, 
+                            rate=?, amount=?, supply_rate=?, erection_rate=?, 
+                            company_supply_rate=?, company_erection_rate=?, 
+                            subcon_name=?, subcon_rate=? 
+                            WHERE id=?""", 
+                            (desc[i], u, q, aq, tr, amt, sr, er, csr, cer, sn, scr, eid))
                         flash("Updated!", "success"); eid = None
                     else:
-                        cur.execute("INSERT INTO poq (project_name, material_name, unit, quantity, rate, amount, supply_rate, erection_rate, company_supply_rate, company_erection_rate, subcon_name, subcon_rate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (sp, desc[i], u, q, tr, amt, sr, er, csr, cer, sn, scr))
-                        if not cur.execute("SELECT id FROM stock WHERE material_name=?", (desc[i],)).fetchone(): cur.execute("INSERT INTO stock (material_name, unit, opening_stock) VALUES (?, ?, 0)", (desc[i], u))
+                        cur.execute("""INSERT INTO poq 
+                            (project_name, material_name, unit, quantity, actual_quantity, rate, amount, supply_rate, erection_rate, company_supply_rate, company_erection_rate, subcon_name, subcon_rate) 
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", 
+                            (sp, desc[i], u, q, aq, tr, amt, sr, er, csr, cer, sn, scr))
+                        
+                        if not cur.execute("SELECT id FROM stock WHERE material_name=?", (desc[i],)).fetchone(): 
+                            cur.execute("INSERT INTO stock (material_name, unit, opening_stock) VALUES (?, ?, 0)", (desc[i], u))
             conn.commit(); flash("Saved!", "success")
         except Exception as e: flash(f"Error: {e}", "error")
         conn.close(); return redirect(url_for("poq", project=sp))
+        
     pl = conn.execute("SELECT * FROM projects ORDER BY project_name").fetchall(); bl = []; tb=0; ebd = None
     if eid: ebd = conn.execute("SELECT * FROM poq WHERE id=?", (eid,)).fetchone()
     if sp:
-        bl = conn.execute("SELECT * FROM poq WHERE project_name=? ORDER BY id ASC", (sp,)).fetchall(); tb = sum((x['amount'] or 0) for x in bl)
-    conn.close(); return render_template("poq.html", project_list=pl, selected_project=sp, boq_list=bl, total_boq_value=tb, edit_boq_data=ebd)
+        bl = conn.execute("SELECT * FROM poq WHERE project_name=? ORDER BY id ASC", (sp,)).fetchall(); 
+        tb = sum((x['amount'] or 0) for x in bl)
+    conn.close(); 
+    return render_template("poq.html", project_list=pl, selected_project=sp, boq_list=bl, total_boq_value=tb, edit_boq_data=ebd)
 
 @app.route("/poq/delete/<int:id>")
 def delete_poq(id):
@@ -3066,18 +3392,31 @@ def delete_poq(id):
 def work_progress():
     if not session.get("username"): return redirect(url_for("login"))
     conn = get_db(); sp = request.args.get("project", "")
+    
     if request.method == "POST":
         bid = request.form.get("boq_item_id"); qs = float(request.form.get("qty_supply") or 0); qe = float(request.form.get("qty_erection") or 0)
         if bid and (qs > 0 or qe > 0):
             conn.execute("INSERT INTO work_progress (project_name, boq_item_id, work_date, qty_supply, qty_erection, remarks) VALUES (?, ?, ?, ?, ?, ?)", (sp, bid, request.form.get("work_date"), qs, qe, request.form.get("remarks", "")))
             conn.commit(); flash("Updated!", "success")
         conn.close(); return redirect(url_for("work_progress", project=sp))
+        
     pl = conn.execute("SELECT * FROM projects ORDER BY project_name").fetchall(); bpl = []; wh = []
     if sp:
         for i in conn.execute("SELECT * FROM poq WHERE project_name=? ORDER BY id ASC", (sp,)).fetchall():
             ds = conn.execute("SELECT SUM(qty_supply) FROM work_progress WHERE boq_item_id=?", (i['id'],)).fetchone()[0] or 0
             de = conn.execute("SELECT SUM(qty_erection) FROM work_progress WHERE boq_item_id=?", (i['id'],)).fetchone()[0] or 0
-            bpl.append({"id": i['id'], "description": i['material_name'], "unit": i['unit'], "total_qty": i['quantity'] or 0, "done_supply": ds, "done_erection": de, "balance_supply": (i['quantity'] or 0)-ds, "balance_erection": (i['quantity'] or 0)-de, "supply_rate": i['supply_rate'] or 0, "erection_rate": i['erection_rate'] or 0})
+            
+            # NEW: Use actual_quantity for balance calculation (fallback to quantity if null)
+            total_boq_qty = i['actual_quantity'] if i['actual_quantity'] is not None else (i['quantity'] or 0)
+            
+            bpl.append({
+                "id": i['id'], "description": i['material_name'], "unit": i['unit'], 
+                "total_qty": total_boq_qty, 
+                "done_supply": ds, "done_erection": de, 
+                "balance_supply": total_boq_qty - ds, 
+                "balance_erection": total_boq_qty - de, 
+                "supply_rate": i['supply_rate'] or 0, "erection_rate": i['erection_rate'] or 0
+            })
         
         wh = [dict(r) for r in conn.execute("""
             SELECT wp.id, wp.work_date, bq.material_name, wp.qty_supply, wp.qty_erection, wp.remarks, 
@@ -3087,7 +3426,8 @@ def work_progress():
             WHERE wp.project_name=? 
             ORDER BY wp.work_date DESC, wp.id DESC
         """, (sp,)).fetchall()]
-    conn.close(); return render_template("work_progress.html", project_list=pl, selected_project=sp, boq_progress_list=bpl, work_history=wh)
+    conn.close(); 
+    return render_template("work_progress.html", project_list=pl, selected_project=sp, boq_progress_list=bpl, work_history=wh)
 
 @app.route("/work_progress/delete/<int:id>")
 def delete_work_progress(id):
@@ -3661,11 +4001,13 @@ def import_master():
             return redirect(url_for("import_master"))
         
         try:
+            # CSV மற்றும் Excel ரெண்டையும் படிக்க
             if file.filename.endswith('.csv'):
                 df = pd.read_csv(file)
             else:
                 df = pd.read_excel(file)
                 
+            # காலம் பேர்கள்ல இருக்கற தேவையில்லாத Space-ஐ நீக்குறோம்
             df.columns = df.columns.str.strip()
             
             conn = get_db()
@@ -3674,13 +4016,31 @@ def import_master():
             
             for index, row in df.iterrows():
                 try:
-                    # 1. Date & Amount Formatting
+                    # 1. Date Formatting
                     t_date = pd.to_datetime(row['Date'], dayfirst=True).strftime('%Y-%m-%d')
-                    raw_amount = str(row['Amount']).replace(',', '').strip()
-                    amount = float(raw_amount)
                     
-                    t_type_raw = str(row['Type']).strip()
-                    if t_type_raw.lower() == 'credit note':
+                    # 2. Amount (Basic) & GST Amount எடுத்துக்கொள்ள
+                    raw_basic = str(row.get('Amount (Basic)', row.get('Amount', '0'))).replace(',', '').strip()
+                    basic_amt = float(raw_basic) if raw_basic and raw_basic.lower() != 'nan' else 0.0
+                    
+                    gst_amt = 0.0
+                    # எந்த பேர்ல GST இருந்தாலும் எடுத்துக்கோ (GST Amount, GST, Tax)
+                    gst_col_name = None
+                    for col in df.columns:
+                        if 'gst' in col.lower() or 'tax' in col.lower():
+                            gst_col_name = col
+                            break
+                            
+                    if gst_col_name and pd.notna(row[gst_col_name]):
+                        raw_gst = str(row[gst_col_name]).replace(',', '').strip()
+                        if raw_gst and raw_gst.lower() != 'nan':
+                            gst_amt = round(float(raw_gst), 2)
+                    
+                    total_amt = basic_amt + gst_amt
+                    
+                    # 3. Type, Party, Category
+                    t_type_raw = str(row['Type']).strip().lower()
+                    if t_type_raw == 'credit note':
                         t_type = 'Credit Note'
                     else:
                         t_type = t_type_raw.capitalize()
@@ -3688,49 +4048,88 @@ def import_master():
                     party = str(row['Party Name']).strip()
                     category = str(row['Category']).strip()
                     
-                    # 2. Project Name எடுக்கிறோம் (இல்லைனா General)
+                    # 4. Project Name (இல்லைனா 'General')
                     proj_name = str(row.get('Project Name', 'General')).strip()
                     if pd.isna(row.get('Project Name')) or proj_name.lower() == 'nan' or not proj_name:
                         proj_name = 'General'
 
-                    inv_no = str(row.get('Invoice / Bill No', '')).strip()
-                    if pd.isna(row.get('Invoice / Bill No')) or inv_no.lower() == 'nan':
+                    # 5. Invoice / Bill No (பிழை சரி செய்யப்பட்டது)
+                    inv_no = ''
+                    if 'Invoice / Bill No' in df.columns and pd.notna(row['Invoice / Bill No']):
+                        inv_no = str(row['Invoice / Bill No']).strip()
+                    elif 'Invoice No' in df.columns and pd.notna(row['Invoice No']):
+                        inv_no = str(row['Invoice No']).strip()
+                    
+                    if inv_no.lower() == 'nan':
                         inv_no = ''
+                    
+                    # பில் நம்பர் இல்லைனா ஒரு ஆட்டோ நம்பர் குடுக்கிறோம்
+                    if not inv_no:
+                        inv_no = f"AUTO-{index}"
 
                     if t_type not in ['Income', 'Expense', 'Payment', 'Receipt', 'Credit Note']:
                         continue
                     if not party or not category: continue
                     
-                    # 3. Project Master-ல இல்லைனா புது Project-ஐ ஆட் பண்றோம்
+                    # 6. Project Master-ல இல்லைனா உருவாக்கு
                     if proj_name != 'General':
                         existing_proj = conn.execute("SELECT id FROM projects WHERE TRIM(project_name)=TRIM(?)", (proj_name,)).fetchone()
                         if not existing_proj:
-                            conn.execute("INSERT INTO projects (project_name, client_name) VALUES (?, 'Auto-Created from Tally')", (proj_name,))
+                            conn.execute("INSERT INTO projects (project_name, client_name) VALUES (?, ?)", (proj_name, party))
                     
-                    # 4. Party Master-ல இல்லைனா புது Party-ஐ ஆட் பண்றோம்
+                    # 7. Party Master-ல இல்லைனா உருவாக்கு
                     existing_party = conn.execute("SELECT id FROM parties WHERE TRIM(party_name)=TRIM(?)", (party,)).fetchone()
                     if not existing_party:
                         p_type = 'Debtor' if t_type in ['Income', 'Receipt', 'Credit Note'] else 'Creditor'
                         conn.execute("INSERT INTO parties (party_name, party_type) VALUES (?, ?)", (party, p_type))
                     
-                    # 5. Accounts-ல சேவ் பண்றோம் (project_name உடன்)
+                    # 8. Accounts (P&L-க்கு Basic Amount மட்டும்)
                     conn.execute("""INSERT INTO accounts 
                         (transaction_date, description, amount, transaction_type, project_name, paid_name, category, bill_no) 
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)""", 
-                        (t_date, f"Tally Import - {category}", amount, t_type, proj_name, party, category, inv_no))
+                        (t_date, f"Tally Import - {category}", basic_amt, t_type, proj_name, party, category, inv_no))
                     
-                    # 6. தனித்தனி மாட்யூல் லிஸ்ட்களுக்கு சேவ் பண்றோம்
-                    # அ. Sales Entry-க்கு
+                    # 9. Modules (Ledger & GST Reports-க்கு)
                     if t_type == 'Income' and category.lower() == 'sales':
-                        cur.execute("INSERT INTO bills (project_name, bill_no, bill_date, total_value, bill_type) VALUES (?, ?, ?, ?, 'Tally')", (proj_name, inv_no, t_date, amount))
+                        # Bills-ல Total Amount
+                        cur.execute("INSERT INTO bills (project_name, bill_no, bill_date, total_value, bill_type) VALUES (?, ?, ?, ?, 'Tally')", (proj_name, inv_no, t_date, total_amt))
                         bid = cur.lastrowid
-                        cur.execute("INSERT INTO bill_items (bill_id, description, quantity, rate, basic_amount, total_amount) VALUES (?, 'Imported Sales', 1, ?, ?, ?)", (bid, amount, amount, amount))
                         
-                    # ஆ. Purchase Entry-க்கு
+                        # Bill Items-ல Basic, GST, Total
+                        calc_gst_rate = (gst_amt / basic_amt * 100) if basic_amt > 0 else 0
+                        cur.execute("""INSERT INTO bill_items 
+                            (bill_id, description, quantity, rate, gst_rate, basic_amount, gst_amount, total_amount) 
+                            VALUES (?, 'Imported Sales', 1, ?, ?, ?, ?, ?)""", 
+                            (bid, basic_amt, calc_gst_rate, basic_amt, gst_amt, total_amt))
+                        
                     elif t_type == 'Expense' and category.lower() in ['purchase', 'labour purchase', 'legal purchase']:
-                        cur.execute("INSERT INTO purchases (po_number, project_name, supplier_name, invoice_number, invoice_date, subtotal, total_amount, md_approval, payment_status) VALUES ('Tally', ?, ?, ?, ?, ?, ?, 'Approved', 'Paid')", (proj_name, party, inv_no, t_date, amount, amount))
+                        # Purchases-ல Subtotal, GST, Total
+                        cur.execute("""INSERT INTO purchases 
+                            (po_number, project_name, supplier_name, invoice_number, invoice_date, subtotal, gst_amount, total_amount, md_approval, payment_status) 
+                            VALUES ('Tally', ?, ?, ?, ?, ?, ?, ?, 'Approved', 'Paid')""", 
+                            (proj_name, party, inv_no, t_date, basic_amt, gst_amt, total_amt))
                         pid = cur.lastrowid
-                        cur.execute("INSERT INTO purchase_items (purchase_id, material_name, quantity, rate, amount) VALUES (?, 'Imported Purchase', 1, ?, ?)", (pid, amount, amount))
+                        
+                        # Purchase Items-ல Basic & GST
+                        calc_gst_rate = (gst_amt / basic_amt * 100) if basic_amt > 0 else 0
+                        cur.execute("""INSERT INTO purchase_items 
+                            (purchase_id, material_name, quantity, rate, gst_rate, amount) 
+                            VALUES (?, 'Imported Purchase', 1, ?, ?, ?)""", 
+                            (pid, basic_amt, calc_gst_rate, total_amt))
+                        
+                    # 👇 Credit Note History-க்கு சேவ் பண்றோம் 👇
+                    elif t_type == 'Credit Note':
+                        cur.execute("""INSERT INTO credit_notes 
+                            (bill_id, project_name, cn_no, cn_date, total_value) 
+                            VALUES (0, ?, ?, ?, ?)""", 
+                            (proj_name, inv_no, t_date, total_amt))
+                        cn_id = cur.lastrowid
+                        
+                        calc_gst_rate = (gst_amt / basic_amt * 100) if basic_amt > 0 else 0
+                        cur.execute("""INSERT INTO credit_note_items 
+                            (cn_id, description, quantity, rate, gst_rate, basic_amount, gst_amount, total_amount) 
+                            VALUES (?, 'Imported Credit Note', 1, ?, ?, ?, ?, ?)""", 
+                            (cn_id, basic_amt, calc_gst_rate, basic_amt, gst_amt, total_amt))
                         
                     count += 1
                 except Exception as row_e:
@@ -3739,14 +4138,13 @@ def import_master():
                     
             conn.commit()
             conn.close()
-            flash(f"Successfully imported {count} records with Projects!", "success")
+            flash(f"Successfully imported {count} records with Basic & GST!", "success")
         except Exception as e:
             flash(f"Error reading file: {e}", "error")
             
         return redirect(url_for("import_master"))
         
     return render_template("import_master.html")
-
 
 # ------------------------------------------------------------------
 # STARTUP

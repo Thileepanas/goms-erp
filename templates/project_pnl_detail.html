@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% block title %}Project P&L Detail{% endblock %}
-{% block page_title %}P&L Statement - {{ project['project_name'] }}{% endblock %}
+{% block title %}Project Cash Flow{% endblock %}
+{% block page_title %}Cash Flow Statement - {{ project['project_name'] }}{% endblock %}
 
 {% block content %}
 <style>
@@ -23,15 +23,15 @@
 <!-- Summary Cards -->
 <div class="summary-cards">
     <div class="summary-card card-income">
-        <h4>Total Cash Inflow</h4>
+        <h4>Total Cash Received (Inflow)</h4>
         <h2>₹ {{ total_inflow | inr }}</h2>
     </div>
     <div class="summary-card card-expense">
-        <h4>Total Cash Outflow</h4>
+        <h4>Total Cash Paid (Outflow)</h4>
         <h2>₹ {{ total_outflow | inr }}</h2>
     </div>
     <div class="summary-card card-profit">
-        <h4>Net Profit / Loss</h4>
+        <h4>Net Cash Flow</h4>
         <h2 style="color: {% if net_profit >= 0 %}#176b38{% else %}#e31e24{% endif %};">
             ₹ {{ net_profit | inr }}
         </h2>
@@ -40,7 +40,7 @@
 
 <!-- Detailed Transactions Table -->
 <div class="card">
-    <h3 style="color: var(--primary-blue); border-bottom: 2px solid var(--accent-red); display: inline-block; padding-bottom: 5px; margin-bottom: 20px;">Cash Flow Statement</h3>
+    <h3 style="color: var(--primary-blue); border-bottom: 2px solid var(--accent-red); display: inline-block; padding-bottom: 5px; margin-bottom: 20px;">Bank / Cash Transactions</h3>
     
     <div class="table-wrap">
         <table>
@@ -50,20 +50,26 @@
                     <th>Particulars</th>
                     <th>Category</th>
                     <th>Paid To / From</th>
-                    <th style="color: #176b38; text-align: right;">Inflow (+)</th>
-                    <th style="color: #e31e24; text-align: right;">Outflow (-)</th>
+                    <th style="color: #176b38; text-align: right;">Money In (+)</th>
+                    <th style="color: #e31e24; text-align: right;">Money Out (-)</th>
                 </tr>
             </thead>
             <tbody>
+                <!-- இங்க தான் லூப் இருக்கு, t என்ற வேரியபிள் இங்க தான் வரணும் -->
                 {% for t in transactions %}
                 <tr>
                     <td>{{ t['transaction_date'] | dateformat }}</td>
-                    <td><strong>{{ t['description'] }}</strong></td>
+                    <td>
+                        <strong>{{ t['description'] }}</strong>
+                        {% if t['bill_no'] %}
+                        <br><small style="color: #666; background: #e2e8f0; padding: 2px 5px; border-radius: 4px;">Inv: {{ t['bill_no'] }}</small>
+                        {% endif %}
+                </td>
                     <td>{{ t['category'] or '-' }}</td>
                     <td>{{ t['paid_name'] or '-' }}</td>
                     
                     <td style="text-align: right; color: #176b38; font-weight: bold;">
-                        {% if t['transaction_type'] in ('Income', 'Debit Note') %}
+                        {% if t['transaction_type'] and 'receipt' in t['transaction_type']|lower %}
                             ₹ {{ t['amount'] | inr }}
                         {% else %}
                             -
@@ -71,7 +77,7 @@
                     </td>
                     
                     <td style="text-align: right; color: #e31e24; font-weight: bold;">
-                        {% if t['transaction_type'] == 'Expense' %}
+                        {% if t['transaction_type'] and 'payment' in t['transaction_type']|lower %}
                             ₹ {{ t['amount'] | inr }}
                         {% else %}
                             -
@@ -79,7 +85,7 @@
                     </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="6" style="text-align: center; padding: 20px;">No transactions found for this project.</td></tr>
+                <tr><td colspan="6" style="text-align: center; padding: 20px;">No Bank Payments or Receipts found for this project.</td></tr>
                 {% endfor %}
             </tbody>
             <tfoot>

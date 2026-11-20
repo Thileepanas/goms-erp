@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}Tender Estimated P&L{% endblock %}
+{% block page_title %}Estimated P&L - {{ tender['tender_no'] }}{% endblock %}
+
+{% block content %}
+<style>
+    /* Table Fix */
+    .table-wrap { overflow-x: auto; width: 100%; background: white; border-radius: 8px; border: 1px solid #ddd; }
+    .tender-table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 900px; }
+    .tender-table th, .tender-table td { padding: 12px 10px; border-bottom: 1px solid #eee; font-size: 13px; vertical-align: middle; }
+    .tender-table th { background: #f1f5f9; color: #0a2240; font-weight: bold; font-size: 12px; text-transform: uppercase; }
+    
+    /* Column Widths */
+    .tender-table th:nth-child(1), .tender-table td:nth-child(1) { width: 35%; white-space: normal; text-align: left; word-break: break-all; }
+    .tender-table th:nth-child(2), .tender-table td:nth-child(2) { width: 6%; text-align: right; }
+    .tender-table th:nth-child(3), .tender-table td:nth-child(3) { width: 6%; text-align: center; }
+    .tender-table th:nth-child(4), .tender-table td:nth-child(4) { width: 10%; text-align: right; }
+    .tender-table th:nth-child(5), .tender-table td:nth-child(5) { width: 11%; text-align: right; }
+    .tender-table th:nth-child(6), .tender-table td:nth-child(6) { width: 10%; text-align: right; }
+    .tender-table th:nth-child(7), .tender-table td:nth-child(7) { width: 11%; text-align: right; }
+    .tender-table th:nth-child(8), .tender-table td:nth-child(8) { width: 11%; text-align: right; }
+
+    /* Summary Boxes CSS */
+    .summary-container { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
+    .summary-box { 
+        flex: 1; min-width: 200px; padding: 15px; border-radius: 8px; 
+        border-left: 5px solid #0a2240; background: #f8fafc; box-shadow: 0 2px 5px rgba(0,0,0,0.05); 
+    }
+    .summary-box span { font-size: 13px; color: #555; text-transform: uppercase; font-weight: bold; }
+    .summary-box h4 { margin: 5px 0 0 0; font-size: 20px; color: #0a2240; }
+
+    /* Print Header (Hidden on screen) */
+    .print-header { display: none; text-align: center; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px; }
+
+    /* ========== PRINT STYLES ========== */
+    @media print {
+        .sidebar, .topbar, .no-print, .btn, .quick-action-btn, .quick-menu { display: none !important; }
+        
+        body { background: white; margin: 0; padding: 0; display: block; height: auto !important; }
+        .main-content { width: 100% !important; margin: 0 !important; padding: 0 !important; display: block !important; height: auto !important; }
+        .content-area { padding: 0 !important; overflow: visible !important; height: auto !important; }
+        
+        .print-header { display: block !important; page-break-after: avoid !important; margin-bottom: 15px !important; }
+        
+        .card { box-shadow: none !important; border: none !important; padding: 0 !important; margin-bottom: 0 !important; page-break-inside: auto !important; }
+        .table-wrap { border: none !important; border-radius: 0 !important; overflow: visible !important; page-break-before: avoid !important; }
+        
+        /* Summary Boxes Print Style */
+        .summary-container { margin-bottom: 15px; gap: 10px; }
+        .summary-box { box-shadow: none !important; border: 1px solid #000 !important; border-left: 4px solid #000 !important; padding: 8px !important; }
+        .summary-box h4 { font-size: 16px !important; }
+        
+        /* Print Table Settings */
+        .tender-table { width: 100% !important; min-width: 100% !important; font-size: 9px !important; table-layout: fixed !important; }
+        .tender-table th, .tender-table td { border: 1px solid #000 !important; padding: 4px !important; box-sizing: border-box !important; }
+        
+        /* Long Text Wrap Fix for Description */
+        .tender-table th:nth-child(1), .tender-table td:nth-child(1) { 
+            word-break: break-all !important; 
+            overflow-wrap: break-word !important; 
+            white-space: normal !important;
+        }
+        
+        /* Prevent wrapping for numbers */
+        .tender-table td:nth-child(n+2), tfoot td { white-space: nowrap !important; }
+
+        .tender-table th { background: #f1f5f9 !important; color: #000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        thead { display: table-header-group !important; } 
+        tfoot { display: table-row-group !important; }
+        tr { page-break-inside: avoid !important; } 
+    }
+
+    @media (max-width: 768px) {
+        .tender-table th:nth-child(1), .tender-table td:nth-child(1) { width: 50%; }
+        .tender-table { min-width: 800px; }
+    }
+</style>
+
+<!-- Print-only Header -->
+<div class="print-header">
+    <h2 style="margin: 0; color: #000;">GOMS ELECTRICALS PVT LTD</h2>
+    <h3 style="margin: 5px 0; color: #000;">Tender Profitability Analysis</h3>
+    <p style="margin: 0; font-size: 14px;">Tender No: <strong>{{ tender['tender_no'] }}</strong> | Client: {{ tender['client_name'] }}</p>
+</div>
+
+<!-- Buttons (Hidden on Print) -->
+<div style="margin-bottom: 15px; display: flex; gap: 10px;" class="no-print">
+    <a href="{{ url_for('tender_items', id=tender['id']) }}" class="btn" style="background: #6c757d; padding: 8px 15px;">⬅️ Back to Tender Items</a>
+    <button type="button" onclick="window.print()" class="btn" style="background: #0a2240; padding: 8px 15px;">🖨️ Print P&L</button>
+</div>
+
+<!-- Top Summary Section -->
+<div class="summary-container">
+    <div class="summary-box" style="border-left-color: #0d47a1;">
+        <span>Total BOQ Value</span>
+        <h4>{{ total_client_val | inr }}</h4>
+    </div>
+    <div class="summary-box" style="border-left-color: #d97706;">
+        <span>Total Our Value</span>
+        <h4>{{ total_target_cost | inr }}</h4>
+    </div>
+    <div class="summary-box" style="border-left-color: {% if total_profit >= 0 %}#176b38{% else %}#e31e24{% endif %};">
+        <span>Total Est. Profit</span>
+        <h4 style="color: {% if total_profit >= 0 %}#176b38{% else %}#e31e24{% endif %};">{{ total_profit | inr }}</h4>
+    </div>
+</div>
+
+<!-- Detailed Table -->
+<div class="card" style="padding: 20px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+    <h3 class="no-print" style="color: #0a2240; border-bottom: 2px solid #e31e24; display: inline-block; padding-bottom: 5px; margin-bottom: 20px;">Tender Profitability Analysis</h3>
+    
+    <div class="table-wrap">
+        <table class="tender-table">
+            <thead>
+                <tr>
+                    <th>Description</th>
+                    <th>Qty</th>
+                    <th>Unit</th>
+                    <th>BOQ Rate</th>
+                    <!-- இங்கே பெயர் மாற்றப்பட்டுள்ளது -->
+                    <th>BOQ Value</th>
+                    <th style="color: #d97706;">Our Rate</th>
+                    <!-- இங்கே பெயர் மாற்றப்பட்டுள்ளது -->
+                    <th style="color: #d97706;">Our Value</th>
+                    <th>Est. Profit</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in pnl_data %}
+                <tr>
+                    <td><strong>{{ item.description }}</strong></td>
+                    <td>{{ item.qty }}</td>
+                    <td>{{ item.unit }}</td>
+                    <td>{{ item.client_rate | inr }}</td>
+                    <td style="color: #0d47a1; font-weight: bold;">{{ item.client_val | inr }}</td>
+                    <td>{{ item.our_rate | inr }}</td>
+                    <td style="color: #d97706; font-weight: bold;">{{ item.target_cost | inr }}</td>
+                    <td style="font-weight: bold; color: {% if item.profit >= 0 %}#176b38{% else %}#e31e24{% endif %};">
+                        {{ item.profit | inr }}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="8" style="text-align: center; padding: 20px;">No items found in this tender.</td></tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr style="background: #e2e8f0; font-weight: bold; border-top: 2px solid #ccc;">
+                    <td colspan="4" style="text-align: right; font-size: 13px;">GRAND TOTAL:</td>
+                    <td style="color: #0d47a1;">{{ total_client_val | inr }}</td>
+                    <td></td>
+                    <td style="color: #d97706;">{{ total_target_cost | inr }}</td>
+                    <td style="color: {% if total_profit >= 0 %}#176b38{% else %}#e31e24{% endif %}; font-size: 13px;">
+                        {{ total_profit | inr }}
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+{% endblock %}

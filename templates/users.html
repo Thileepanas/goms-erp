@@ -25,7 +25,9 @@
             <div style="margin-bottom: 20px;">
                 <label>Role / Designation *</label>
                 <select name="role" required>
-                    <option value="Admin">Admin (Full Access)</option>
+                    <!-- MD ரோல் சேர்க்கப்பட்டுள்ளது -->
+                    <option value="MD">MD (Full Access)</option> 
+                    <option value="Admin">Admin (System Only)</option>
                     <option value="GM">GM (Approvals & Reports)</option>
                     <option value="Accountant">Accountant (Finance)</option>
                     <option value="Store Keeper">Store Keeper (Inventory)</option>
@@ -55,17 +57,20 @@
                         <td>{{ u['id'] }}</td>
                         <td><strong>{{ u['username'] }}</strong></td>
                         <td>
-                            <span class="role-badge-custom">{{ u['role'] or 'Admin' }}</span>
+                            <span class="role-badge-custom">{{ u['role'] or 'MD' }}</span>
                         </td>
                         <td class="no-print" style="text-align: center;">
                             
-                            {% if is_admin_or_gm %}
+                            <!-- Admin அல்லது MD மட்டுமே யூசர்ஸை மேனேஜ் பண்ண முடியும் -->
+                            {% if session.get('role') in ['Admin', 'MD'] %}
                                 {% if u['username'] != session['username'] %}
                                 <div style="display: flex; gap: 5px; justify-content: center; align-items: center; flex-wrap: wrap;">
                                     
                                     <!-- Modify Role Form -->
                                     <form method="POST" action="{{ url_for('edit_user_role', id=u['id']) }}" class="edit-role-form" style="display: flex; gap: 5px; margin: 0;">
                                         <select name="role" style="padding: 4px; border-radius: 4px; font-size: 12px; border: 1px solid #ccc;">
+                                            <!-- MD ரோல் சேர்க்கப்பட்டுள்ளது -->
+                                            <option value="MD" {% if u['role'] == 'MD' %}selected{% endif %}>MD</option>
                                             <option value="Admin" {% if u['role'] == 'Admin' %}selected{% endif %}>Admin</option>
                                             <option value="GM" {% if u['role'] == 'GM' %}selected{% endif %}>GM</option>
                                             <option value="Accountant" {% if u['role'] == 'Accountant' %}selected{% endif %}>Accountant</option>
@@ -101,9 +106,7 @@
 <script>
 document.addEventListener("DOMContentLoaded", function() {
 
-    // ==========================================
     // CUSTOM TOAST MESSAGE FUNCTION
-    // ==========================================
     function showToast(message, type = 'success') {
         const bgColor = type === 'success' ? '#176b38' : '#e31e24';
         const toast = document.createElement('div');
@@ -124,9 +127,7 @@ document.addEventListener("DOMContentLoaded", function() {
         }, 3000);
     }
 
-    // ==========================================
     // 1. AJAX for Create User
-    // ==========================================
     const createForm = document.getElementById("createUserForm");
     if (createForm) {
         createForm.addEventListener("submit", function(e) {
@@ -142,8 +143,8 @@ document.addEventListener("DOMContentLoaded", function() {
             headers: { 
                 'X-Requested-With': 'XMLHttpRequest',
                 'X-CSRFToken': '{{ csrf_token() }}' 
-                    }
-                                        })
+            }
+            })
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success') {
@@ -163,9 +164,7 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     }
 
-    // ==========================================
     // 2. AJAX for Edit Role
-    // ==========================================
     document.querySelectorAll('.edit-role-form').forEach(form => {
         form.addEventListener("submit", function(e) {
             e.preventDefault();
@@ -198,9 +197,7 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     });
 
-    // ==========================================
     // 3. AJAX for Delete User
-    // ==========================================
     document.querySelectorAll('.delete-btn').forEach(btn => {
         btn.addEventListener('click', function(e) {
             e.preventDefault();

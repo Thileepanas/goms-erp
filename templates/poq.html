@@ -37,23 +37,25 @@
         {% endif %}
         
         <div class="table-wrap" style="background: white; padding: 10px; border-radius: 6px; border: 1px solid #ddd; overflow-x: auto;">
-            <table id="itemsTable" style="margin: 0; min-width: 1200px; width: 100%;">
+            <table id="itemsTable" style="margin: 0; min-width: 1300px; width: 100%;">
                 <thead>
                     <tr style="background: #f1f5f9;">
                         <th style="width: 15%;">Description *</th>
-                        <th style="width: 6%;">Unit</th>
-                        <th style="width: 6%;">Qty *</th>
-                        <th style="width: 8%;">Client Sup Rate</th>
-                        <th style="width: 8%;">Client Ere Rate</th>
+                        <th style="width: 5%;">Unit</th>
+                        <!-- NEW: BOQ Qty and Act Qty -->
+                        <th style="width: 6%;">BOQ Qty *</th>
+                        <th style="width: 6%; background: #fff3e0;">Act Qty *</th>
                         
-                        <!-- NEW COLUMNS -->
-                        <th style="width: 8%; background: #e3f2fd;">Our Sup Cost</th>
-                        <th style="width: 8%; background: #e3f2fd;">Our Ere Cost</th>
+                        <th style="width: 7%;">Client Sup Rate</th>
+                        <th style="width: 7%;">Client Ere Rate</th>
+                        
+                        <th style="width: 7%; background: #e3f2fd;">Our Sup Cost</th>
+                        <th style="width: 7%; background: #e3f2fd;">Our Ere Cost</th>
                         
                         <th style="width: 10%;">Sub-con Name</th>
-                        <th style="width: 8%;">Sub-con Rate</th>
+                        <th style="width: 7%;">Sub-con Rate</th>
                         <th style="width: 10%; text-align: right;">Total (₹)</th>
-                        <th style="width: 13%; text-align: center;">Action</th>
+                        <th style="width: 10%; text-align: center;">Action</th>
                     </tr>
                 </thead>
                 <tbody id="itemsBody">
@@ -71,17 +73,21 @@
                                 <option {% if current_unit == 'LS' %}selected{% endif %}>LS</option>
                             </select>
                         </td>
+                        
+                        <!-- BOQ Qty (Reference) -->
                         <td><input type="number" name="quantity[]" step="any" required class="item-qty qty" value="{{ edit_boq_data.quantity if edit_boq_data else 1 }}"></td>
+                        <!-- Act Qty (Calculations use this) -->
+                        <td style="background: #fff8e1;"><input type="number" name="actual_quantity[]" step="any" required class="item-qty act_qty" value="{{ edit_boq_data.actual_quantity if edit_boq_data and edit_boq_data.actual_quantity else (edit_boq_data.quantity if edit_boq_data else 1) }}"></td>
                         
                         <td><input type="number" name="supply_rate[]" step="any" required class="item-rate s_rate" value="{{ edit_boq_data.supply_rate if edit_boq_data else 0 }}"></td>
                         <td><input type="number" name="erection_rate[]" step="any" required class="item-rate e_rate" value="{{ edit_boq_data.erection_rate if edit_boq_data else 0 }}"></td>
                         
-                        <!-- NEW INPUTS -->
                         <td style="background: #f1f8ff;"><input type="number" name="comp_supply_rate[]" step="any" class="item-rate" value="{{ edit_boq_data.company_supply_rate if edit_boq_data else 0 }}"></td>
                         <td style="background: #f1f8ff;"><input type="number" name="comp_erection_rate[]" step="any" class="item-rate" value="{{ edit_boq_data.company_erection_rate if edit_boq_data else 0 }}"></td>
                         
                         <td><input type="text" name="subcon_name[]" placeholder="Subcon" class="item-desc" value="{{ edit_boq_data.subcon_name if edit_boq_data else '' }}"></td>
                         <td><input type="number" name="subcon_rate[]" step="any" class="item-rate sc_rate" value="{{ edit_boq_data.subcon_rate if edit_boq_data else 0 }}"></td>
+                        
                         <td class="rowTotal item-total">0.00</td>
                         <td style="text-align: center; white-space: nowrap;">
                             {% if not edit_boq_data %}
@@ -112,13 +118,16 @@
 <div class="card">
     <h3>BOQ List</h3>
     <div class="table-wrap" style="overflow-x: auto;">
-        <table style="width: 100%; border-collapse: collapse; min-width: 1000px;">
+        <table style="width: 100%; border-collapse: collapse; min-width: 1100px;">
             <thead>
                 <tr style="background: #f1f5f9;">
                     <th>S.No</th>
                     <th>Description</th>
                     <th>Unit</th>
-                    <th>Qty</th>
+                    <!-- NEW: BOQ Qty & Act Qty -->
+                    <th>BOQ Qty</th>
+                    <th style="background: #fff3e0;">Act Qty</th>
+                    
                     <th>Client Sup</th>
                     <th>Client Ere</th>
                     <th style="background: #e3f2fd;">Our Sup</th>
@@ -134,14 +143,15 @@
                     <td>{{ loop.index }}</td>
                     <td><strong>{{ item['material_name'] }}</strong></td>
                     <td>{{ item['unit'] }}</td>
-                    <td>{{ item['quantity'] }}</td>
-                    <td>{{ (item['supply_rate'] or 0) | inr }}</td>
-                    <td>{{ (item['erection_rate'] or 0) | inr }}</td>
                     
                     <!-- NEW DATA -->
+                    <td style="color: #666;">{{ item['quantity'] }}</td>
+                    <td style="background: #fff8e1; font-weight: bold; color: #d97706;">{{ item['actual_quantity'] or item['quantity'] }}</td>
+                    
+                    <td>{{ (item['supply_rate'] or 0) | inr }}</td>
+                    <td>{{ (item['erection_rate'] or 0) | inr }}</td>
                     <td style="background: #f1f8ff;">{{ (item['company_supply_rate'] or 0) | inr }}</td>
                     <td style="background: #f1f8ff;">{{ (item['company_erection_rate'] or 0) | inr }}</td>
-                    
                     <td>{{ item['subcon_name'] or '-' }}</td>
                     <td style="text-align: right; font-weight: bold;">{{ (item['amount'] or 0) | inr }}</td>
                     <td class="no-print" style="text-align: center;">
@@ -152,12 +162,12 @@
                     </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="11" style="text-align: center;">No BOQ items added yet.</td></tr>
+                <tr><td colspan="12" style="text-align: center;">No BOQ items added yet.</td></tr>
                 {% endfor %}
             </tbody>
             <tfoot>
                 <tr style="background: #e2e8f0;">
-                    <td colspan="9" style="text-align: right; font-weight: bold; font-size: 16px;">Total BOQ Value (Client):</td>
+                    <td colspan="10" style="text-align: right; font-weight: bold; font-size: 16px;">Total BOQ Value (Client):</td>
                     <td style="text-align: right; font-weight: bold; font-size: 16px;">₹ {{ total_boq_value | inr }}</td>
                     <td class="no-print"></td>
                 </tr>
@@ -186,16 +196,17 @@
                 </select>
             </td>
             <td><input type="number" name="quantity[]" step="any" required class="item-qty qty" value="1"></td>
+            <td style="background: #fff8e1;"><input type="number" name="actual_quantity[]" step="any" required class="item-qty act_qty" value="1"></td>
             
             <td><input type="number" name="supply_rate[]" step="any" required class="item-rate s_rate" value="0"></td>
             <td><input type="number" name="erection_rate[]" step="any" required class="item-rate e_rate" value="0"></td>
             
-            <!-- NEW JS INPUTS -->
             <td style="background: #f1f8ff;"><input type="number" name="comp_supply_rate[]" step="any" class="item-rate" value="0"></td>
             <td style="background: #f1f8ff;"><input type="number" name="comp_erection_rate[]" step="any" class="item-rate" value="0"></td>
             
             <td><input type="text" name="subcon_name[]" placeholder="Subcon" class="item-desc"></td>
             <td><input type="number" name="subcon_rate[]" step="any" class="item-rate sc_rate" value="0"></td>
+            
             <td class="rowTotal item-total">0.00</td>
             <td style="text-align: center; white-space: nowrap;">
                 <button type="button" onclick="addRowAfter(this)" class="btn-add" style="margin-right: 5px;">+</button>
@@ -213,17 +224,19 @@
     }
 
     function attachEvents(row) {
-        const qty = row.querySelector(".qty");
+        const act_qty = row.querySelector(".act_qty");
         const s_rate = row.querySelector(".s_rate");
         const e_rate = row.querySelector(".e_rate");
         
-        if(qty) qty.addEventListener("input", () => calculateRow(row));
+        // Act Qty மாறும்போது கணக்கிட வேண்டும்
+        if(act_qty) act_qty.addEventListener("input", () => calculateRow(row));
         if(s_rate) s_rate.addEventListener("input", () => calculateRow(row));
         if(e_rate) e_rate.addEventListener("input", () => calculateRow(row));
     }
 
     function calculateRow(row) {
-        const qty = parseFloat(row.querySelector(".qty").value) || 0;
+        // கணக்கிற்கு Act Qty-ஐ எடுத்துக்கொள்கிறோம்
+        const qty = parseFloat(row.querySelector(".act_qty").value) || 0;
         const s_rate = parseFloat(row.querySelector(".s_rate").value) || 0;
         const e_rate = parseFloat(row.querySelector(".e_rate").value) || 0;
         

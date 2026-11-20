@@ -6,6 +6,7 @@
 <div class="card" style="background: #f9fbfc;">
     <h3>Create New Tender</h3>
     <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="grid-3">
             <div>
                 <label>Tender No / Project Name *</label>
@@ -37,7 +38,7 @@
                     <th>Tender No</th>
                     <th>Client</th>
                     <th>Submission Date</th>
-                    <th>Estimated Value (₹)</th>
+                    <th>Estimated Value</th> <!-- ₹ நீக்கப்பட்டது -->
                     <th>Status</th>
                     <th class="no-print" style="text-align: center;">Action</th>
                 </tr>
@@ -48,7 +49,7 @@
                     <td><strong>{{ t['tender_no'] }}</strong></td>
                     <td>{{ t['client_name'] }}</td>
                     <td>{{ t['submission_date'] | dateformat }}</td>
-                    <td style="font-weight: bold; color: #0d47a1;">₹ {{ t['estimated_value'] | inr }}</td>
+                    <td style="font-weight: bold; color: #0d47a1;">{{ t['estimated_value'] | inr }}</td> <!-- ₹ நீக்கப்பட்டது -->
                     <td>
                         {% if t['status'] == 'Won' %}<span style="color: green; font-weight: bold;">Won 🎉</span>
                         {% elif t['status'] == 'Lost' %}<span style="color: red; font-weight: bold;">Lost</span>
@@ -59,7 +60,6 @@
                             <a href="{{ url_for('tender_items', id=t['id']) }}" class="btn" style="padding: 4px 8px; font-size: 12px; background: #0a2240;">📝 Estimate</a>
                             
                             {% if t['status'] == 'Pending' %}
-                                <!-- FIX: Added confirm to prevent accidental status change -->
                                 <a href="{{ url_for('update_tender_status', id=t['id'], status='Won') }}" class="btn" style="padding: 4px 8px; font-size: 12px; background: #176b38;" onclick="return confirm('Mark this tender as WON?');">✅ Won</a>
                                 <a href="{{ url_for('update_tender_status', id=t['id'], status='Lost') }}" class="btn" style="padding: 4px 8px; font-size: 12px; background: #e31e24;" onclick="return confirm('Mark this tender as LOST?');">❌ Lost</a>
                             {% elif t['status'] == 'Won' %}

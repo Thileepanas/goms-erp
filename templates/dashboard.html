@@ -5,7 +5,9 @@
 {% block content %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-{% set is_supervisor = session.get('role') == 'Site Supervisor' %}
+{% set user_role = session.get('role', 'MD') %}
+{% set is_supervisor = user_role == 'Site Supervisor' %}
+{% set can_access_accounts = user_role in ['GM', 'Accountant'] %}
 
 <style>
     /* Stats Grid */
@@ -77,7 +79,7 @@
         <div class="banner-meta">
             <span>📅 <strong>{{ today.strftime('%d %b %Y') }}</strong></span>
             <span>🗓️ Financial Year: <strong>{{ fy_str }}</strong></span>
-            <span>👤 Role: <strong>{{ session.get('role', 'Admin') }}</strong></span>
+            <span>👤 Role: <strong>{{ user_role }}</strong></span>
         </div>
     </div>
     <div style="font-size: 50px; opacity: 0.5;">⚡</div>
@@ -112,7 +114,7 @@
     {% endif %}
 </div>
 
-<!-- CHARTS SECTION (Project Status First, Cash Flow Second) -->
+<!-- CHARTS SECTION -->
 <div class="dashboard-layout">
     
     <!-- 1. Project Status Chart (Left) -->
@@ -180,8 +182,12 @@
     <div class="panel">
         <h3>Quick Actions</h3>
         <div class="quick-actions">
-            {% if not is_supervisor %}
+            <!-- MD-க்கு Bill அனுமதி இல்லாததால், can_access_accounts மூலம் செக் செய்கிறோம் -->
+            {% if can_access_accounts %}
             <a href="{{ url_for('accounts_entry') }}" class="qa-bill">+ New Bill</a>
+            {% endif %}
+            
+            {% if not is_supervisor %}
             <a href="{{ url_for('indents') }}" class="qa-po">+ New Indent</a>
             {% endif %}
             <a href="{{ url_for('material_issue') }}" class="qa-issue">+ Material Issue</a>
@@ -194,7 +200,7 @@
 
 {% block scripts %}
 <script>
-// ===== 1. Project Status (Doughnut Chart) - Professional Colors =====
+// ===== 1. Project Status (Doughnut Chart) =====
 document.addEventListener("DOMContentLoaded", function() {
     const psCtx = document.getElementById('projectStatusChart');
     if (psCtx) {
@@ -205,12 +211,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 datasets: [{
                     data: {{ status_counts | tojson }},
                     backgroundColor: [
-                        '#264653', // Deep Corporate Blue
-                        '#2A9D8F', // Muted Teal
-                        '#E9C46A', // Sand/Yellow
-                        '#F4A261', // Muted Orange
-                        '#E76F51', // Coral Red
-                        '#6D597A'  // Muted Purple
+                        '#264653', '#2A9D8F', '#E9C46A', '#F4A261', '#E76F51', '#6D597A'
                     ],
                     borderWidth: 2,
                     borderColor: '#fff'
@@ -228,7 +229,7 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 
 {% if not is_supervisor %}
-// ===== 2. Cash Flow Chart (Bar Chart) - Professional Colors =====
+// ===== 2. Cash Flow Chart (Bar Chart) =====
 document.addEventListener("DOMContentLoaded", function() {
     const cfCtx = document.getElementById('cashFlowChart');
     if (cfCtx) {
@@ -240,13 +241,13 @@ document.addEventListener("DOMContentLoaded", function() {
                     {
                         label: 'Income (Inflow)',
                         data: {{ cash_flow_income | tojson }},
-                        backgroundColor: '#2A9D8F', // Professional Teal Green
+                        backgroundColor: '#2A9D8F',
                         borderRadius: 4
                     },
                     {
                         label: 'Expense (Outflow)',
                         data: {{ cash_flow_expense | tojson }},
-                        backgroundColor: '#E76F51', // Professional Coral Red
+                        backgroundColor: '#E76F51',
                         borderRadius: 4
                     }
                 ]

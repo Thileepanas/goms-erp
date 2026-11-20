@@ -4,16 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GOMS ERP | {% block title %}{% endblock %}</title>
+    
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#0a2240">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-192.png') }}">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
     <!-- CSS File Link -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     {% block head %}{% endblock %}
 </head>
 <body>
 
-{% set user_role = session.get('role', 'Admin') %}
+{% set user_role = session.get('role', 'MD') %}
 {% set is_supervisor = user_role == 'Site Supervisor' %}
-{% set is_admin = user_role == 'Admin' %}
-{% set role_class = 'admin' if user_role == 'Admin' else ('gm' if user_role in ['GM', 'Manager'] else ('supervisor' if user_role == 'Site Supervisor' else 'other')) %}
+<!-- இங்கே MD-யும் சேர்க்கப்பட்டுள்ளது -->
+{% set is_admin = user_role in ['Admin', 'MD'] %}
+{% set role_class = 'admin' if user_role in ['Admin', 'MD'] else ('gm' if user_role in ['GM', 'Manager'] else ('supervisor' if user_role == 'Site Supervisor' else 'other')) %}
 
 <!-- 1. Sidebar -->
 {% include 'partials/sidebar.html' %}
@@ -49,6 +58,21 @@ window.APP_URLS = {
 
 <!-- JS File Link -->
 <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+<!-- PWA Service Worker Registration -->
+<script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register("{{ url_for('static', filename='sw.js') }}")
+                .then(registration => {
+                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                })
+                .catch(err => {
+                    console.log('ServiceWorker registration failed: ', err);
+                });
+        });
+    }
+</script>
 
 <!-- Page Specific Scripts (Charts etc) -->
 {% block scripts %}{% endblock %}

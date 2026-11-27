@@ -26,6 +26,8 @@ DATABASE = os.path.join(BASE_DIR, "goms_erp_new.db")
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'static', 'uploads')
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+app.config['SECRET_KEY'] = 'your-fixed-long-secret-key-here'
+csrf = CSRFProtect(app)
 
 # ================= SECURITY CONFIGURATIONS =================
 app.config['SESSION_COOKIE_SECURE'] = os.environ.get("HTTPS_MODE", "0") == "1"
@@ -753,9 +755,25 @@ def upload_tender_excel(id):
         if not all(col in df.columns for col in req_cols):
             flash(f"Invalid format. Need: {', '.join(req_cols)}", "error")
             return redirect(url_for("tender_items", id=id))
+        
         conn = get_db()
+
+        existing_items = conn.execute(
+            "SELECT description FROM tender_items WHERE tender_id=?", (id,)
+        ).fetchall()
+        existing_desc_set = {str(item[0]).strip().lower() for item in existing_items}
+        
+        added_count = 0
+        skipped_count = 0
+
         for index, row in df.iterrows():
             if pd.notna(row['Description']) and str(row['Description']).strip() != "":
+                desc = str(row['Description']).strip()
+                
+                if desc.lower() in existing_desc_set:
+                    skipped_count += 1
+                    continue
+
                 q = float(row['Quantity']) if pd.notna(row['Quantity']) else 0
                 sup_rate = float(row['BOQ Supply Rate']) if pd.notna(row['BOQ Supply Rate']) else 0
                 ere_rate = float(row['BOQ Erection Rate']) if pd.notna(row['BOQ Erection Rate']) else 0
@@ -763,14 +781,23 @@ def upload_tender_excel(id):
                 c_ere_rate = float(row['Our Erection Rate']) if 'Our Erection Rate' in df.columns and pd.notna(row['Our Erection Rate']) else 0
                 total_rate = sup_rate + ere_rate
                 amt = round(q * total_rate, 2)
+                
                 conn.execute("""INSERT INTO tender_items
                     (tender_id, description, unit, quantity, rate, supply_rate, erection_rate, company_supply_rate, company_erection_rate, amount)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (id, str(row['Description']).strip(), str(row['Unit']).strip(), q, total_rate, sup_rate, ere_rate, c_sup_rate, c_ere_rate, amt))
+                    (id, desc, str(row['Unit']).strip(), q, total_rate, sup_rate, ere_rate, c_sup_rate, c_ere_rate, amt))
+                existing_desc_set.add(desc.lower())
+                added_count += 1
+
         total = conn.execute("SELECT SUM(amount) FROM tender_items WHERE tender_id=?", (id,)).fetchone()[0] or 0
         conn.execute("UPDATE tenders SET estimated_value=? WHERE id=?", (total, id))
         conn.commit(); conn.close()
-        flash("Excel uploaded with BOQ & Target Rates!", "success")
+        
+        if skipped_count > 0:
+            flash(f"Excel uploaded! {added_count} new items added, {skipped_count} duplicates skipped.", "success")
+        else:
+            flash("Excel uploaded with BOQ & Target Rates!", "success")
+            
     except Exception as e:
         flash(f"Error: {str(e)}", "error")
     return redirect(url_for("tender_items", id=id))
@@ -787,6 +814,27 @@ def edit_tender_item(item_id):
     conn.execute("UPDATE tenders SET estimated_value=? WHERE id=?", (total, tid))
     conn.commit(); conn.close(); flash("Item updated!", "success")
     return redirect(url_for("tender_items", id=tid))
+
+@app.route("/tender/item/delete/<int:item_id>", methods=["POST"])
+def delete_tender_item(item_id):
+    if not session.get("username"): return redirect(url_for("login"))
+    
+    conn = get_db()
+    item = conn.execute("SELECT tender_id FROM tender_items WHERE id=?", (item_id,)).fetchone()
+    
+    if item:
+        tender_id = item[0]
+        conn.execute("DELETE FROM tender_items WHERE id=?", (item_id,))
+        total = conn.execute("SELECT SUM(amount) FROM tender_items WHERE tender_id=?", (tender_id,)).fetchone()[0] or 0
+        conn.execute("UPDATE tenders SET estimated_value=? WHERE id=?", (total, tender_id))
+        
+        conn.commit()
+        flash("Item deleted successfully!", "success")
+    else:
+        flash("Item not found!", "error")
+        
+    conn.close()
+    return redirect(url_for("tender_items", id=tender_id))
 
 @app.route("/tender/sample_excel")
 def download_tender_sample():
